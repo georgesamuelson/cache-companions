@@ -136,7 +136,7 @@ Cache Companions reads the token counts Claude Code already reports. It sends no
 
 ## Sound
 
-`sounds/hungry.wav` is original: a soft two-note chime synthesized from sine waves by `sounds/make-hungry.py`, with no samples or third-party audio. Claude Code plays plugin sounds with `afplay` on macOS. Linux and Windows terminals play nothing.
+`sounds/hungry.wav` is original and under the same MIT licence as the code: a soft two-note chime synthesized from sine waves by `sounds/make-hungry.py`, with no samples or third-party audio. Claude Code plays plugin sounds with `afplay` on macOS. Linux and Windows terminals play nothing.
 
 ## Files
 
@@ -160,3 +160,7 @@ claude plugin test plugins/cache-companions
 ```
 
 Type-check with `tsc -p plugins/cache-companions` once Claude Code has loaded the plugin, which lays its types in `.claude-plugin/types/`.
+
+## Licence
+
+MIT. See `LICENSE`.
