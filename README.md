@@ -26,6 +26,8 @@ In the desktop app, where `/plugin` doesn't run, click **+** next to the prompt 
 
 **Update:** `claude plugin update cache-companions`, then start a new session.
 
+**Desktop app:** needs Claude Code 2.1.286 or later inside the app; check with `/status` in a Code tab session. The app ships its own copy of Claude Code, so it can lag your terminal's.
+
 **Doesn't show up?** Claude Code is still rolling out plugins of this kind, and some sessions don't load installed ones yet. Loading it from a folder works everywhere. Clone this repository and point Claude Code at it:
 
 ```sh
@@ -53,7 +55,7 @@ json.dump(s, open(p, 'w'), indent=2)
 PY
 ```
 
-Settings and all-time totals start fresh in each cloud session.
+In cloud sessions the plugin runs (`/boop`, auto-boop, stats) but Claude Code doesn't draw plugin UI there, so there's no face or band. Settings and all-time totals start fresh in each cloud session.
 
 ## Suggest a change
 
