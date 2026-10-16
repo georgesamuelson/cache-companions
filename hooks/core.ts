@@ -417,7 +417,7 @@ export const ABOUT = [
   'Cache Companions, by George Samuelson. Feed your cache. Save your tokens.',
   'I made it because I kept losing my prompt cache between meetings and calls, and with how much I use Claude, that adds up.',
   "I love animals, and over the past eight years I've rescued more than 20 cats, all self-funded, so the companion had to be an animal.",
-  'It is free. If it saves you money and you want to help the animals: Venmo @georgesamuelson · georgesamuelson.com',
+  'It is free. If it saves you money and you want to help the animals: buymeacoffee.com/georgesamuelson · Venmo @georgesamuelson',
   'Say hi: @georgesamuelson on Instagram and X · github.com/georgesamuelson/cache-companions',
 ].join('\n')
 

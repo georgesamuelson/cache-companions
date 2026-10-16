@@ -20,6 +20,7 @@ Cache Companions is free. Away from the keyboard I rescue animals: I put out foo
 
 If this saves you some money and you'd like to pass a little on, anything you send goes to food, vet care and fostering, with a thank-you from me. No pressure at all; using it, starring the repo or telling a friend helps too.
 
+- ☕ Buy me a coffee: [buymeacoffee.com/georgesamuelson](https://buymeacoffee.com/georgesamuelson)
 - Venmo: [@georgesamuelson](https://venmo.com/u/georgesamuelson)
 - Instagram: [@georgesamuelson](https://instagram.com/georgesamuelson)
 - X / Twitter: [@georgesamuelson](https://x.com/georgesamuelson)
