@@ -262,15 +262,9 @@ export const register: Register = on => {
 
     if ((await $.store.get('welcomed')) !== true) {
       await $.store.set('welcomed', true)
+      // One line: the transcript draws a log line without its line breaks.
       $.ui.log(
-        [
-          `${faceFor(settings.animal, settings.style, 'fresh', 1000)} Hi, I'm your cache companion. I get hungry before your prompt cache expires.`,
-          '  /boop cat · /boop dog     swap animal',
-          '  /boop emoji               emoji faces',
-          '  /boop auto on             keep the cache warm for you',
-          '  /boop stats               what the cache saved (estimate)',
-          '  /boop help                everything else',
-        ].join('\n'),
+        `${faceFor(settings.animal, settings.style, 'fresh', 1000)} Hi, I'm your cache companion. I get hungry before your prompt cache expires. /boop settings to pick an animal, /boop auto on to keep the cache warm, /boop help for the rest.`,
       )
     }
 
