@@ -157,16 +157,16 @@ The cache-read refreshes the cache's lifetime, so the countdown starts again. A 
 
 ## How the cache window is found
 
-The countdown needs to know whether the cache lasts 5 minutes or an hour. With `/boop window auto` it uses the first of these that it has:
+The countdown follows the rules Claude Code itself uses for the main conversation's cache ([docs](https://code.claude.com/docs/en/prompt-caching)):
 
-1. **What Claude Code reports.** Three reports carry it:
-   - a model switch (Claude Code states the window)
-   - resuming a session (Claude Code says whether it thinks the cache lapsed)
-   - a subagent's reply (its cache writes are split into 5-minute and 1-hour)
-2. **What it learned from use.** A turn that starts more than 5 minutes after the cache was last fed, and still reads most of its prompt from cache, proves the hour window. The answer is saved per billing type (subscription or API), so the learning happens once.
-3. **Otherwise 5 minutes.** The animal gets hungry early, never late.
+- **Subscription, within your plan:** 1 hour.
+- **Subscription past its limits, on usage credits:** 5 minutes. Claude Code drops to the shorter, cheaper cache when you go over.
+- **API key or cloud provider:** 5 minutes.
+- **Overrides,** first match wins: `FORCE_PROMPT_CACHING_5M=1`, `CLAUDE_CODE_PROMPT_CACHE_TTL` (`5m` or `1h`), the `promptCacheTtl` setting, then `ENABLE_PROMPT_CACHING_1H=1`.
 
-`/boop stats` says which of these it is using.
+It re-checks every 10 seconds, so the timer switches from 60 to 5 minutes the moment you go onto credits. You can tell you're on credits because Claude Code reports your plan's usage at 100%. Until the first reply it assumes 5 minutes, so the animal gets hungry early, never late. `/boop window 5` or `60` overrides all of this; `/boop stats` says which applies.
+
+**On usage credits,** auto-boop spends real money while you're away, so the companion says so once and suggests `/boop night` or `/boop away 60`.
 
 ## How the savings estimate works
 

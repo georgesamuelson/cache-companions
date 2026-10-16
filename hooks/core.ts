@@ -106,42 +106,43 @@ export function statusText(face: string, c: Countdown, auto: boolean): string {
 
 // ---------- the cache window ----------
 
-export type WindowEvidence = { detected: 5 | 60 | null; learned: 5 | 60 | null }
+/**
+ * The window Claude Code itself uses for the main conversation, by its own
+ * rules (code.claude.com/docs/en/prompt-caching): an hour on a subscription
+ * within its plan, five minutes on usage credits, an API key or a cloud
+ * provider; FORCE_PROMPT_CACHING_5M, CLAUDE_CODE_PROMPT_CACHE_TTL, the
+ * promptCacheTtl setting and ENABLE_PROMPT_CACHING_1H override, in that order.
+ */
+export type WindowRuleInputs = {
+  force5m: string | undefined
+  envTtl: string | undefined
+  settingTtl: unknown
+  enable1h: string | undefined
+  mode: BillingMode
+  onCredits: boolean
+}
 
-export function resolveWindow(setting: TtlSetting, ev: WindowEvidence): { minutes: 5 | 60; source: TtlSource } {
+const isOn = (v: string | undefined) => v === '1' || v === 'true'
+
+export function claudeCodeWindow(i: WindowRuleInputs): 5 | 60 {
+  if (isOn(i.force5m)) return 5
+  const ttl = i.envTtl ?? (typeof i.settingTtl === 'string' ? i.settingTtl : undefined)
+  if (ttl === '5m') return 5
+  if (ttl === '1h') return 60
+  if (isOn(i.enable1h)) return 60
+  return i.mode === 'subscription' && !i.onCredits ? 60 : 5
+}
+
+/** Your setting wins; otherwise Claude Code's rule; before any reading, five minutes. */
+export function resolveWindow(setting: TtlSetting, rule: 5 | 60 | null): { minutes: 5 | 60; source: TtlSource } {
   if (setting !== 'auto') return { minutes: setting, source: 'setting' }
-  if (ev.detected !== null) return { minutes: ev.detected, source: 'claude-code' }
-  if (ev.learned !== null) return { minutes: ev.learned, source: 'learned' }
-  // Unknown: assume the short window, so the animal is hungry early, never late.
+  if (rule !== null) return { minutes: rule, source: 'claude-code' }
   return { minutes: 5, source: 'assumed' }
 }
 
-const FIVE_MIN = 5 * 60_000
-/** Slack for clocks and request time before a gap counts as past five minutes. */
-const GAP_SLACK_MS = 20_000
-
-/**
- * What a turn says about the window. A turn that started more than five
- * minutes after the cache was last fed and still read most of its prompt
- * from cache proves the hour window. Misses prove nothing (a model switch,
- * a compaction or an edited CLAUDE.md also rebuild), so nothing is learned
- * from them.
- */
-export function learnWindow(gapMs: number | null, usage: Usage): 60 | null {
-  if (gapMs === null || gapMs < FIVE_MIN + GAP_SLACK_MS || gapMs > 60 * 60_000) return null
-  const prompt = promptTokens(usage)
-  return prompt > 0 && usage.cache_read_input_tokens / prompt >= 0.5 ? 60 : null
-}
-
-/**
- * Claude Code's own judgement on a resumed session: it says how long ago the
- * last reply was and whether it thinks the cache has lapsed. A gap between
- * five minutes and an hour tells the windows apart.
- */
-export function windowFromResume(secondsSince: number | undefined, likelyExpired: boolean | undefined): 5 | 60 | null {
-  if (secondsSince === undefined || likelyExpired === undefined) return null
-  if (secondsSince * 1000 < FIVE_MIN + GAP_SLACK_MS || secondsSince >= 3600) return null
-  return likelyExpired ? 5 : 60
+/** Past 100% of a plan window, a subscription is drawing on usage credits. */
+export function isOnCredits(rateLimits: readonly { percentUsed: number }[]): boolean {
+  return rateLimits.some(r => r.percentUsed >= 100)
 }
 
 /**
@@ -155,14 +156,6 @@ export function resumedFedAt(now: number, secondsSince: number | undefined, like
   return likelyExpired ? Math.min(at, now - 60 * 60_000 - 1000) : at
 }
 
-/** A subagent's API usage splits its cache writes by window. */
-export function windowFromWrites(split: { ephemeral_5m_input_tokens?: number; ephemeral_1h_input_tokens?: number } | null | undefined): 5 | 60 | null {
-  if (!split) return null
-  const h = split.ephemeral_1h_input_tokens ?? 0
-  const m = split.ephemeral_5m_input_tokens ?? 0
-  if (h === 0 && m === 0) return null
-  return h >= m ? 60 : 5
-}
 
 // ---------- auto-boop ----------
 
@@ -366,7 +359,7 @@ export function statsText(a: {
     }
     return lines.join('\n')
   }
-  const source = { 'claude-code': 'from Claude Code', learned: 'learned from your sessions', assumed: 'assumed until known', setting: 'your setting' }[a.windowSource]
+  const source = { 'claude-code': 'how Claude Code sets it for your plan', learned: 'learned', assumed: 'assumed until the first reply', setting: 'your setting' }[a.windowSource]
   const last = a.lastWasCached === null ? 'no turn yet' : a.lastWasCached ? 'served from cache' : 'rebuilt the cache'
   return [
     block('This session', a.session),

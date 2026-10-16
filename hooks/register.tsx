@@ -23,22 +23,20 @@ import {
   faceFor,
   freshRuntime,
   isCached,
-  learnWindow,
   normalizeSettings,
   onRealPrompt,
   preventedUsd,
   priceFor,
   promptTokens,
   resolveWindow,
+  claudeCodeWindow,
+  isOnCredits,
   statsText,
   statusText,
   summaryLine,
   turnSavedUsd,
-  windowFromResume,
   resumedFedAt,
-  windowFromWrites,
 } from './core'
-import type { WindowEvidence } from './core'
 
 type $ = EngineInterface
 
@@ -52,7 +50,9 @@ let settings: Settings = normalizeSettings(undefined)
 let rt: Runtime = freshRuntime()
 let allTime: Totals = emptyTotals()
 let mode: BillingMode = 'api'
-const evidence: WindowEvidence = { detected: null, learned: null }
+let rule: 5 | 60 | null = null
+let onCredits = false
+let creditsNotified = false
 let isBusy = false
 let isBooping = false
 let bigStopNotified = false
@@ -61,7 +61,7 @@ let resumedAt: number | null = null
 let sessionReady = false
 let lastView = ''
 
-const windowNow = () => resolveWindow(settings.ttl, evidence)
+const windowNow = () => resolveWindow(settings.ttl, rule)
 
 async function saveRuntime($: $) {
   await $.state.set(RUNTIME, rt)
@@ -116,12 +116,32 @@ async function saveSettings($: $) {
   await refresh($)
 }
 
-async function learn($: $, minutes: 5 | 60, exact: boolean) {
-  if (exact) evidence.detected = minutes
-  if (evidence.learned === minutes) return
-  evidence.learned = minutes
-  const map = ((await $.store.get('ttl')) ?? {}) as Record<string, 5 | 60>
-  await $.store.set('ttl', { ...map, [mode]: minutes })
+/**
+ * Reads what decides Claude Code's cache window: the plan (subscriptions
+ * report usage-limit windows, API keys don't), whether it's past its limits
+ * and on usage credits, and the env vars and setting that override.
+ */
+async function readWindowRule($: $) {
+  const { rateLimits } = await $.session.usage()
+  const billing: BillingMode = rateLimits.length > 0 ? 'subscription' : 'api'
+  if (billing !== mode) {
+    mode = billing
+    await $.store.set('billing', mode)
+  }
+  onCredits = isOnCredits(rateLimits)
+  const all = (await $.settings.read()) as Record<string, unknown>
+  rule = claudeCodeWindow({
+    force5m: await $.env.get('FORCE_PROMPT_CACHING_5M'),
+    envTtl: await $.env.get('CLAUDE_CODE_PROMPT_CACHE_TTL'),
+    settingTtl: all.promptCacheTtl,
+    enable1h: await $.env.get('ENABLE_PROMPT_CACHING_1H'),
+    mode,
+    onCredits,
+  })
+  if (onCredits && settings.auto && settings.maxAwayMinutes === 0 && !creditsNotified) {
+    creditsNotified = true
+    $.ui.toast("You're on usage credits, so auto-boop spends them while you're away. /boop night or /boop away 60 sets a limit.", { timeoutMs: 10000 })
+  }
 }
 
 /** Redraws the status entry and the band's view. Called once a second. */
@@ -132,6 +152,7 @@ async function refresh($: $) {
     settingsReadAt = now
     await loadSettings($)
     await noteModel($, await $.session.model(), now)
+    await readWindowRule($)
   }
   const win = windowNow()
   const c = countdown(rt, win.minutes * 60_000, now, isBusy)
@@ -275,10 +296,9 @@ export const register: Register = on => {
     await loadSettings($)
     allTime = sumTotals((await $.store.get('totals')) as Partial<Totals> | undefined, emptyTotals())
     mode = ((await $.store.get('billing')) as BillingMode | undefined) ?? 'api'
-    const learned = ((await $.store.get('ttl')) ?? {}) as Record<string, 5 | 60>
-    evidence.learned = learned[mode] ?? null
     rt = (await $.state.get(RUNTIME)).value ?? freshRuntime()
     sessionReady = true
+    await readWindowRule($)
     if (resumedAt !== null) await applyResume($)
     // v0.1.0 pinned a status entry; the CLI now shows the companion in the footer.
     $.ui.status(undefined)
@@ -334,19 +354,10 @@ export const register: Register = on => {
       return result
     }
 
-    // Subscriptions report usage-limit windows; API keys don't.
-    const billing: BillingMode = (await $.session.usage()).rateLimits.length > 0 ? 'subscription' : 'api'
-    if (billing !== mode) {
-      mode = billing
-      const learned = ((await $.store.get('ttl')) ?? {}) as Record<string, 5 | 60>
-      evidence.learned = learned[mode] ?? null
-      await $.store.set('billing', mode)
-    }
+    await readWindowRule($)
 
     const now = await $.clock.now()
     const startedAt = now - e.durationMs
-    const learned = learnWindow(rt.lastFedAt === null ? null : startedAt - rt.lastFedAt, u)
-    if (learned !== null) await learn($, learned, false)
 
     const win = windowNow()
     const price = priceFor(u.model, promptTokens(u), settings.prices)
@@ -378,31 +389,18 @@ export const register: Register = on => {
     return result
   })
 
-  // Exact window signals, where Claude Code shares them.
   on('classic.PostModelSwitch', async ($, e, next) => {
-    await learn($, e.cache_ttl === '1h' ? 60 : 5, true)
     await noteModel($, e.to_model, await $.clock.now())
     return next(e)
   }).catch(($, e, next) => next(e))
 
   on('classic.SessionStart', async ($, e, next) => {
-    const w = windowFromResume(e.seconds_since_last_response, e.prompt_cache_likely_expired)
-    if (w !== null) await learn($, w, true)
     // A resumed session: start the countdown from the real last reply.
     if (e.source === 'resume' || e.source === 'fork') {
       resumedAt = resumedFedAt(await $.clock.now(), e.seconds_since_last_response, e.prompt_cache_likely_expired)
       if (resumedAt !== null && sessionReady) await applyResume($)
     }
     return next(e)
-  }).catch(($, e, next) => next(e))
-
-  // A subagent's reply reports which window its cache writes used.
-  on('tool.call', { tool: 'Agent' }, async ($, e, next) => {
-    const r = await next(e)
-    const usage = (r.result as { usage?: { cache_creation?: { ephemeral_5m_input_tokens?: number; ephemeral_1h_input_tokens?: number } | null } } | undefined)?.usage
-    const w = windowFromWrites(usage?.cache_creation)
-    if (w !== null) await learn($, w, true)
-    return r
   }).catch(($, e, next) => next(e))
 
   on('command.run', { command: 'boop' }, async ($, e) => {

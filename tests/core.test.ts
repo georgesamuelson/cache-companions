@@ -7,19 +7,18 @@ import {
   countdown,
   faceFor,
   freshRuntime,
-  learnWindow,
   modelKey,
   moodOf,
   onRealPrompt,
   preventedUsd,
   priceFor,
   resolveWindow,
+  claudeCodeWindow,
+  isOnCredits,
   statsText,
   statusText,
   summaryLine,
   turnSavedUsd,
-  windowFromResume,
-  windowFromWrites,
   resumedFedAt,
   addTurn,
   bigNotice,
@@ -77,27 +76,27 @@ describe('countdown and moods', () => {
 })
 
 describe('the cache window', () => {
-  test('a setting wins; then Claude Code; then what was learned; else 5 minutes', () => {
-    expect(resolveWindow(60, { detected: 5, learned: 5 })).toEqual({ minutes: 60, source: 'setting' })
-    expect(resolveWindow('auto', { detected: 60, learned: 5 })).toEqual({ minutes: 60, source: 'claude-code' })
-    expect(resolveWindow('auto', { detected: null, learned: 60 })).toEqual({ minutes: 60, source: 'learned' })
-    expect(resolveWindow('auto', { detected: null, learned: null })).toEqual({ minutes: 5, source: 'assumed' })
+  test("your setting wins; then Claude Code's rule; before any reading, 5 minutes", () => {
+    expect(resolveWindow(60, 5)).toEqual({ minutes: 60, source: 'setting' })
+    expect(resolveWindow('auto', 60)).toEqual({ minutes: 60, source: 'claude-code' })
+    expect(resolveWindow('auto', null)).toEqual({ minutes: 5, source: 'assumed' })
   })
 
-  test('a cache hit after more than five minutes proves the hour window', () => {
-    expect(learnWindow(8 * MIN, usage(90_000, 1_000))).toBe(60)
-    expect(learnWindow(3 * MIN, usage(90_000, 1_000))).toBe(null)
-    expect(learnWindow(8 * MIN, usage(0, 90_000))).toBe(null)
-    expect(learnWindow(null, usage(90_000, 0))).toBe(null)
+  test("Claude Code's rule: an hour on a subscription within its plan, 5 minutes on credits or an API key", () => {
+    const base = { force5m: undefined, envTtl: undefined, settingTtl: undefined, enable1h: undefined }
+    expect(claudeCodeWindow({ ...base, mode: 'subscription', onCredits: false })).toBe(60)
+    expect(claudeCodeWindow({ ...base, mode: 'subscription', onCredits: true })).toBe(5)
+    expect(claudeCodeWindow({ ...base, mode: 'api', onCredits: false })).toBe(5)
+    expect(claudeCodeWindow({ ...base, mode: 'api', onCredits: false, settingTtl: '1h' })).toBe(60)
+    expect(claudeCodeWindow({ ...base, mode: 'api', onCredits: false, enable1h: '1' })).toBe(60)
+    expect(claudeCodeWindow({ ...base, mode: 'subscription', onCredits: false, envTtl: '5m', settingTtl: '1h' })).toBe(5)
+    expect(claudeCodeWindow({ ...base, mode: 'subscription', onCredits: false, force5m: '1', envTtl: '1h' })).toBe(5)
   })
 
-  test('a resumed session and a subagent’s cache writes say the window exactly', () => {
-    expect(windowFromResume(600, false)).toBe(60)
-    expect(windowFromResume(600, true)).toBe(5)
-    expect(windowFromResume(60, true)).toBe(null)
-    expect(windowFromWrites({ ephemeral_1h_input_tokens: 5000, ephemeral_5m_input_tokens: 0 })).toBe(60)
-    expect(windowFromWrites({ ephemeral_1h_input_tokens: 0, ephemeral_5m_input_tokens: 5000 })).toBe(5)
-    expect(windowFromWrites(null)).toBe(null)
+  test('past 100% of a plan window means usage credits', () => {
+    expect(isOnCredits([{ percentUsed: 99.5 }])).toBe(false)
+    expect(isOnCredits([{ percentUsed: 40 }, { percentUsed: 100 }])).toBe(true)
+    expect(isOnCredits([])).toBe(false)
   })
 })
 

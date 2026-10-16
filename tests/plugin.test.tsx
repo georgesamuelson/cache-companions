@@ -11,7 +11,7 @@ const usage = (read: number, write: number) => ({
 })
 
 /** The engine beneath the plugin: what it asks of the session, and what it shows. */
-function world(on: On, opts: { kind?: string; settings?: object; env?: Record<string, string> } = {}) {
+function world(on: On, opts: { kind?: string; settings?: object; env?: Record<string, string>; percentUsed?: number } = {}) {
   const model = { current: 'claude-opus-5-5' }
   const clock = mock.clock(on, { now: 1_000_000 })
   // The machine's plugin store, which every session on it shares.
@@ -23,7 +23,9 @@ function world(on: On, opts: { kind?: string; settings?: object; env?: Record<st
   })
   const shown = { status: [] as (string | undefined)[], toasts: [] as string[], forks: 0 }
   // Subscriptions report usage-limit windows; an API key reports none.
-  const rateLimits = (opts.kind ?? 'claude.ai') === 'claude.ai' ? [{ kind: 'five_hour', percentUsed: 10 }] : []
+  // Past its plan (usage credits) by default, so the window is 5 minutes.
+  const rateLimits = (opts.kind ?? 'claude.ai') === 'claude.ai' ? [{ kind: 'five_hour', percentUsed: opts.percentUsed ?? 100 }] : []
+  on('settings.read', () => ({ value: {} }))
   on('session.usage', () => ({ value: { startedAt: 0, context: {}, rateLimits } as never }))
   on('command.register', (_$, e) => ({ value: { command: e.name } }))
   on('ui.status', (_$, e) => {
@@ -171,6 +173,13 @@ test('a model switch shows cold and stops boops until the next message', async (
   expect(shown.toasts.some(t => /sonnet-5-5/.test(t))).toBe(true)
   await clock.advance(5 * 60_000)
   expect(shown.forks).toBe(0)
+})
+
+test('a subscription within its plan gets the hour window', async ($, on) => {
+  world(on, { percentUsed: 40, settings: { auto: false } })
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await aTurn($, 90_000, 0)
+  expect(await status($)).toBe('ʕ^ᴥ^ʔ 60:00')
 })
 
 test('auto-boop is on out of the box', async ($, on) => {
