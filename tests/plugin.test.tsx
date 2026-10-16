@@ -11,7 +11,8 @@ const usage = (read: number, write: number) => ({
 })
 
 /** The engine beneath the plugin: what it asks of the session, and what it shows. */
-function world(on: On, opts: { kind?: string; settings?: object } = {}) {
+function world(on: On, opts: { kind?: string; settings?: object; env?: Record<string, string> } = {}) {
+  const model = { current: 'claude-opus-5-5' }
   const clock = mock.clock(on, { now: 1_000_000 })
   // The machine's plugin store, which every session on it shares.
   const store = new Map<string, unknown>([['welcomed', true], ...(opts.settings ? [['settings', opts.settings] as const] : [])])
@@ -39,6 +40,8 @@ function world(on: On, opts: { kind?: string; settings?: object } = {}) {
     return { value: { isAnswered: true as const, text: 'boop', usage: usage(80_000, 0) } }
   })
   on('session.start', () => ({ cwd: '/' }))
+  on('env.get', (_$, e) => ({ value: opts.env?.[e.name] }))
+  on('session.model', () => ({ value: model.current }))
   on('turn.start', (_$, e) => ({ turnId: e.turnId ?? 't' }))
   on('turn.complete', (_$, e) => ({ text: e.answer }))
   on('prompt.submit', (_$, e) => ({ text: e.text }))
@@ -47,7 +50,7 @@ function world(on: On, opts: { kind?: string; settings?: object } = {}) {
     const { Text } = $.ui.resolve(e)
     return <Text>{e.props.tail ? `${e.props.hint} · ${e.props.tail}` : e.props.hint}</Text>
   })
-  return { clock, shown, store }
+  return { clock, shown, store, model }
 }
 
 const RUN = { origin: { kind: 'composer' as const }, presentation: { isFullscreen: false, columns: 100 } }
@@ -156,6 +159,26 @@ test('a session resumed after the cache lapsed shows cold at once', async ($, on
   await $.classic.SessionStart({ source: 'resume', seconds_since_last_response: 400, prompt_cache_likely_expired: true })
   await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
   expect(await status($)).toBe('ʕ-ᴥ-ʔᶻᶻ')
+})
+
+test('a model switch shows cold and stops boops until the next message', async ($, on) => {
+  const { clock, shown, model } = world(on, { settings: { auto: true } })
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await aTurn($, 90_000, 0)
+  model.current = 'claude-sonnet-5-5'
+  await clock.advance(11_000)
+  expect(await status($)).toBe('ʕ-ᴥ-ʔᶻᶻ')
+  expect(shown.toasts.some(t => /sonnet-5-5/.test(t))).toBe(true)
+  await clock.advance(5 * 60_000)
+  expect(shown.forks).toBe(0)
+})
+
+test('CACHE_COMPANIONS_AUTO=1 starts with auto-boop on when nothing is saved', async ($, on) => {
+  const { clock, shown } = world(on, { env: { CACHE_COMPANIONS_AUTO: '1' } })
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await aTurn($, 90_000, 0)
+  await clock.advance(5 * 60_000)
+  expect(shown.forks).toBe(1)
 })
 
 test('settings and all-time totals are shared with other sessions on the machine', async ($, on) => {

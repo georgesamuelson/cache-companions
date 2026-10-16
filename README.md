@@ -50,7 +50,9 @@ python3 - <<'PY' || true
 import json, os
 p = os.path.expanduser('~/.claude/settings.json')
 s = json.load(open(p)) if os.path.exists(p) else {}
-s.setdefault('env', {})['CLAUDE_CODE_PLUGIN_DIRS'] = os.path.expanduser('~/.claude/cache-companions')
+env = s.setdefault('env', {})
+env['CLAUDE_CODE_PLUGIN_DIRS'] = os.path.expanduser('~/.claude/cache-companions')
+env['CACHE_COMPANIONS_AUTO'] = '1'  # start with auto-boop on; drop this line to start with it off
 json.dump(s, open(p, 'w'), indent=2)
 PY
 ```
@@ -110,6 +112,10 @@ The cache-read refreshes the cache's lifetime, so the countdown starts again. A 
 - only if you set a limit. By default it keeps going for as long as you're away. `/boop away 60` (or `120`) stops it that many minutes after your last turn, and `/boop night` keeps it warm through the night (8 hours) and then lets go. When it stops it shows a toast and the animal goes cold; your next prompt starts it again.
 
 **Big conversations.** When a conversation passes `maxContextTokens` (default 400,000), a toast says once how big it is and what each turn costs to re-read, and suggests `/compact`. Auto-boop keeps going: keeping a big conversation warm still costs far less than rebuilding it. If you'd rather it stopped, use `/boop big stop`.
+
+**Switching models.** A model can't read another model's cache, so after `/model` the companion shows cold straight away, auto-boop waits, and your next message builds a fresh cache.
+
+**Starting with auto-boop on.** Where nothing is saved yet (a new machine, or every cloud session), set `CACHE_COMPANIONS_AUTO=1` in the environment (or in `env` in `~/.claude/settings.json`) and auto-boop starts on.
 
 ## How the cache window is found
 

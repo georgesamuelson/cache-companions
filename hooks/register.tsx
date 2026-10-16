@@ -8,6 +8,7 @@ import {
   HELP,
   addBoop,
   addTurn,
+  modelKey,
   sumTotals,
   bigNotice,
   awayText,
@@ -77,7 +78,27 @@ async function addToAllTime($: $, delta: Totals) {
 
 /** Settings are shared too: pick up a change another session made. */
 async function loadSettings($: $) {
-  settings = normalizeSettings(await $.store.get('settings'))
+  const raw = await $.store.get('settings')
+  if (raw !== undefined) {
+    settings = normalizeSettings(raw)
+    return
+  }
+  // Nothing saved yet (a new machine, or every cloud session): CACHE_COMPANIONS_AUTO=1
+  // in the environment starts with auto-boop on.
+  settings = normalizeSettings({ auto: (await $.env.get('CACHE_COMPANIONS_AUTO')) === '1' })
+}
+
+/**
+ * A different model can't read the old model's cache, so the next turn
+ * rebuilds it. Show cold now so nothing boops a cache that's already gone.
+ */
+async function noteModel($: $, model: string, now: number) {
+  const was = rt.model === null ? null : modelKey(rt.model)
+  const is = modelKey(model)
+  if (was === null || is === null || was === is) return
+  rt = { ...rt, model, lastFedAt: rt.lastFedAt === null ? null : now - 2 * 60 * 60_000, fedUntil: 0 }
+  await saveRuntime($)
+  $.ui.toast(`Switched to ${is}: its cache starts fresh with your next message.`)
 }
 
 async function applyResume($: $) {
@@ -109,6 +130,7 @@ async function refresh($: $) {
   if (now - settingsReadAt >= 10_000) {
     settingsReadAt = now
     await loadSettings($)
+    await noteModel($, await $.session.model(), now)
   }
   const win = windowNow()
   const c = countdown(rt, win.minutes * 60_000, now, isBusy)
@@ -228,8 +250,10 @@ type Els = ReturnType<EngineInterface['ui']['resolve']>
 function settingsRows(els: Els, $: $, s: Settings) {
   const { Box, Text, Button } = els
   const row = (label: string, options: { key: string; label: string; isOn: boolean; press: () => void }[]) => (
-    <Box flexDirection="row" alignItems="center" gap={1} flexWrap="wrap">
-      <Text dimColor>{label}</Text>
+    <Box flexDirection="row" alignItems="center" gap={1}>
+      <Box width={12} flexShrink={0}>
+        <Text dimColor>{label}</Text>
+      </Box>
       {options.map(o => (
         <Button key={o.key} label={o.label} variant={o.isOn ? 'primary' : 'secondary'} dimColor={!o.isOn} onPress={o.press} />
       ))}
@@ -239,9 +263,9 @@ function settingsRows(els: Els, $: $, s: Settings) {
     row('Animal', (['bear', 'cat', 'dog'] as const).map(a => ({ key: `animal-${a}`, label: a[0]!.toUpperCase() + a.slice(1), isOn: s.animal === a, press: () => void patch($, { animal: a }) }))),
     row('Faces', (['text', 'emoji'] as const).map(st => ({ key: `style-${st}`, label: st === 'text' ? 'Text' : 'Emoji', isOn: s.style === st, press: () => void patch($, { style: st }) }))),
     row('Auto-boop', [true, false].map(v => ({ key: `auto-${v}`, label: v ? 'On' : 'Off', isOn: s.auto === v, press: () => void setAuto($, v) }))),
-    row('Keep warm', ([0, 60, 120, NIGHT_MINUTES] as const).map(m => ({ key: `away-${m}`, label: m === 0 ? 'No limit' : m === NIGHT_MINUTES ? 'Night (8 hr)' : `${m / 60} hr`, isOn: s.maxAwayMinutes === m, press: () => void patch($, { maxAwayMinutes: m }) }))),
+    row('Keep warm', ([0, 60, 120, NIGHT_MINUTES] as const).map(m => ({ key: `away-${m}`, label: m === 0 ? 'Always' : m === NIGHT_MINUTES ? 'Night' : `${m / 60}h`, isOn: s.maxAwayMinutes === m, press: () => void patch($, { maxAwayMinutes: m }) }))),
     row('Sound', [true, false].map(v => ({ key: `sound-${v}`, label: v ? 'On' : 'Off', isOn: s.sound === v, press: () => void patch($, { sound: v }) }))),
-    row('Cache window', (['auto', 5, 60] as const).map(t => ({ key: `ttl-${t}`, label: t === 'auto' ? 'Auto' : `${t} min`, isOn: s.ttl === t, press: () => void patch($, { ttl: t }) }))),
+    row('Window', (['auto', 5, 60] as const).map(t => ({ key: `ttl-${t}`, label: t === 'auto' ? 'Auto' : `${t}m`, isOn: s.ttl === t, press: () => void patch($, { ttl: t }) }))),
   ]
 }
 
@@ -356,6 +380,7 @@ export const register: Register = on => {
   // Exact window signals, where Claude Code shares them.
   on('classic.PostModelSwitch', async ($, e, next) => {
     await learn($, e.cache_ttl === '1h' ? 60 : 5, true)
+    await noteModel($, e.to_model, await $.clock.now())
     return next(e)
   }).catch(($, e, next) => next(e))
 
@@ -455,9 +480,9 @@ export const register: Register = on => {
     const { Box, Text } = els
     const v = await read($, viewAtom)
     return (
-      <Box flexDirection="column" padding={1}>
+      <Box flexDirection="column" padding={1} gap={1}>
         <Text>{v ? `${v.face}  ${v.summary}` : 'Cache Companions'}</Text>
-        {settingsRows(els, $, settings)}
+        <Box flexDirection="column">{settingsRows(els, $, v ? v.settings : settings)}</Box>
         <Text dimColor>Esc closes. Settings are kept across sessions.</Text>
       </Box>
     )
@@ -481,7 +506,8 @@ export const register: Register = on => {
     const els = $.ui.resolve(e)
     const { Box, Text, Button } = els
 
-    const width = Math.max(8, Math.min(40, e.props.bodyColumns - 34))
+    // A short bar in one line; the surface's font sets its real width.
+    const width = Math.max(8, Math.min(24, e.props.bodyColumns - 40))
     const filled = Math.round((v.fraction ?? 1) * width)
     const color = v.mood === 'hungry' ? 'error' : v.mood === 'peckish' ? 'warning' : v.mood === 'cold' ? 'inactive' : 'success'
 
@@ -489,9 +515,16 @@ export const register: Register = on => {
       <Box key="cc-band" flexDirection="column" gap={1}>
         <Box flexDirection="row" alignItems="center" gap={2}>
           <Button key="face" plain label={v.face} onPress={() => void update($, panelAtom, o => !o)} />
-          <Box flexDirection="row" flexGrow={1}>
-            <Text color={color}>{'━'.repeat(filled)}</Text>
-            <Text dimColor>{'─'.repeat(width - filled)}</Text>
+          <Box flexDirection="row" flexGrow={1} alignItems="center" gap={1} overflow="hidden">
+            <Text color={color} wrap="truncate">
+              {'━'.repeat(filled)}
+            </Text>
+            <Text dimColor wrap="truncate">
+              {'─'.repeat(width - filled)}
+            </Text>
+            <Text dimColor tabular>
+              {v.mood === 'cold' ? 'cold' : (v.clock ?? '')}
+            </Text>
           </Box>
           <Button
             key="boop"
