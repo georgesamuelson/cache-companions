@@ -1,0 +1,9 @@
+{
+  "name": "cache-companions",
+  "version": "0.1.6",
+  "description": "Feed your cache. Save your tokens.",
+  "types": "./types/index.d.ts",
+  "author": {
+    "name": "George Samuelson"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "cache-companions",
+  "owner": {
+    "name": "George Samuelson"
+  },
+  "plugins": [
+    {
+      "name": "cache-companions",
+      "source": "./",
+      "description": "Feed your cache. Save your tokens.",
+      "author": {
+        "name": "George Samuelson"
+      }
+    }
+  ],
+  "description": "Cache Companions: a tiny animal that watches your prompt cache."
+}

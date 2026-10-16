@@ -1,0 +1,190 @@
+import { describe, expect, test } from 'claude-code/testing'
+
+import type { Usage } from '../types'
+import {
+  autoBoop,
+  boopCostUsd,
+  countdown,
+  faceFor,
+  freshRuntime,
+  learnWindow,
+  modelKey,
+  moodOf,
+  onRealPrompt,
+  preventedUsd,
+  priceFor,
+  resolveWindow,
+  statsText,
+  statusText,
+  summaryLine,
+  turnSavedUsd,
+  windowFromResume,
+  windowFromWrites,
+  resumedFedAt,
+  addTurn,
+  bigNotice,
+  emptyTotals,
+} from '../hooks/core'
+
+const MIN = 60_000
+const r6 = (n: number) => Math.round(n * 1e6) / 1e6
+const usage = (read: number, write: number, input = 100, output = 50): Usage => ({
+  input_tokens: input,
+  output_tokens: output,
+  cache_read_input_tokens: read,
+  cache_creation_input_tokens: write,
+})
+
+describe('countdown and moods', () => {
+  test('mood thresholds: fresh above 60%, peckish 30–60%, hungry below 30%', () => {
+    expect(moodOf(0.61)).toBe('fresh')
+    expect(moodOf(0.6)).toBe('peckish')
+    expect(moodOf(0.3)).toBe('peckish')
+    expect(moodOf(0.29)).toBe('hungry')
+  })
+
+  test('a 5-minute window walks fresh → peckish → hungry → cold', () => {
+    const rt = { lastFedAt: 0, fedUntil: 2000 }
+    const at = (ms: number) => countdown(rt, 5 * MIN, ms, false)
+    expect(at(1000).mood).toBe('fed')
+    expect(at(60_000).mood).toBe('fresh')
+    expect(at(150_000).mood).toBe('peckish')
+    expect(at(240_000).mood).toBe('hungry')
+    expect(at(300_000).mood).toBe('cold')
+    expect(at(1_000_000).leftMs).toBe(0)
+  })
+
+  test('no countdown before the first turn or while Claude works', () => {
+    expect(countdown({ lastFedAt: null, fedUntil: 0 }, 5 * MIN, 10, false).mood).toBe('idle')
+    expect(countdown({ lastFedAt: 0, fedUntil: 0 }, 5 * MIN, 10, true).leftMs).toBe(null)
+  })
+
+  test('status line: face, time, and ↻ after the time when auto-boop is on', () => {
+    const c = countdown({ lastFedAt: 0, fedUntil: 0 }, 5 * MIN, 78_000, false)
+    expect(statusText('ʕ•ᴥ•ʔ', c, false)).toBe('ʕ•ᴥ•ʔ 3:42')
+    expect(statusText('ʕ•ᴥ•ʔ', c, true)).toBe('ʕ•ᴥ•ʔ 3:42↻')
+    const cold = countdown({ lastFedAt: 0, fedUntil: 0 }, 5 * MIN, 400_000, false)
+    expect(statusText('ʕ-ᴥ-ʔᶻᶻ', cold, true)).toBe('ʕ-ᴥ-ʔᶻᶻ')
+  })
+
+  test('faces: peckish has its own eyes and blinks one second in five', () => {
+    expect(faceFor('bear', 'text', 'peckish', 1000)).toBe('ʕ°ᴥ°ʔ')
+    expect(faceFor('bear', 'text', 'peckish', 5000)).toBe('ʕ-ᴥ-ʔ')
+    expect(faceFor('cat', 'text', 'hungry', 0)).toBe('(=^･o･^=)!')
+    expect(faceFor('dog', 'emoji', 'fed', 0)).toBe('🐶🦴')
+    expect(faceFor('pup', 'text', 'cold', 0)).toBe('∪-ω-∪ᶻᶻ')
+  })
+})
+
+describe('the cache window', () => {
+  test('a setting wins; then Claude Code; then what was learned; else 5 minutes', () => {
+    expect(resolveWindow(60, { detected: 5, learned: 5 })).toEqual({ minutes: 60, source: 'setting' })
+    expect(resolveWindow('auto', { detected: 60, learned: 5 })).toEqual({ minutes: 60, source: 'claude-code' })
+    expect(resolveWindow('auto', { detected: null, learned: 60 })).toEqual({ minutes: 60, source: 'learned' })
+    expect(resolveWindow('auto', { detected: null, learned: null })).toEqual({ minutes: 5, source: 'assumed' })
+  })
+
+  test('a cache hit after more than five minutes proves the hour window', () => {
+    expect(learnWindow(8 * MIN, usage(90_000, 1_000))).toBe(60)
+    expect(learnWindow(3 * MIN, usage(90_000, 1_000))).toBe(null)
+    expect(learnWindow(8 * MIN, usage(0, 90_000))).toBe(null)
+    expect(learnWindow(null, usage(90_000, 0))).toBe(null)
+  })
+
+  test('a resumed session and a subagent’s cache writes say the window exactly', () => {
+    expect(windowFromResume(600, false)).toBe(60)
+    expect(windowFromResume(600, true)).toBe(5)
+    expect(windowFromResume(60, true)).toBe(null)
+    expect(windowFromWrites({ ephemeral_1h_input_tokens: 5000, ephemeral_5m_input_tokens: 0 })).toBe(60)
+    expect(windowFromWrites({ ephemeral_1h_input_tokens: 0, ephemeral_5m_input_tokens: 5000 })).toBe(5)
+    expect(windowFromWrites(null)).toBe(null)
+  })
+})
+
+test('a resume starts the countdown from the last reply, or cold if it lapsed', () => {
+  expect(resumedFedAt(1_000_000, 130, false)).toBe(870_000)
+  expect(resumedFedAt(5_000_000, 130, true)).toBe(5_000_000 - 3_601_000)
+  expect(resumedFedAt(1_000_000, undefined, false)).toBe(null)
+})
+
+describe('auto-boop', () => {
+  const base = { settings: { auto: true, maxBoops: 10, maxContextTokens: 400_000, stopWhenBig: false }, isBusy: false, isBooping: false }
+
+  test('boops only in the last 30 seconds, and only when idle', () => {
+    const rt = { boopsInRow: 0, contextTokens: 50_000 }
+    expect(autoBoop({ ...base, rt, leftMs: 60_000 })).toBe('wait')
+    expect(autoBoop({ ...base, rt, leftMs: 25_000 })).toBe('boop')
+    expect(autoBoop({ ...base, rt, leftMs: 25_000, isBusy: true })).toBe('wait')
+    expect(autoBoop({ ...base, rt, leftMs: 25_000, settings: { ...base.settings, auto: false } })).toBe('wait')
+  })
+
+  test('the cap stops auto-boop after maxBoops in a row', () => {
+    expect(autoBoop({ ...base, rt: { boopsInRow: 9, contextTokens: 1 }, leftMs: 20_000 })).toBe('boop')
+    expect(autoBoop({ ...base, rt: { boopsInRow: 10, contextTokens: 1 }, leftMs: 20_000 })).toBe('cap')
+  })
+
+  test('a real prompt resets the count', () => {
+    const capped = { ...freshRuntime(), boopsInRow: 10, capNotified: true }
+    const after = onRealPrompt(capped)
+    expect(after.boopsInRow).toBe(0)
+    expect(after.capNotified).toBe(false)
+    expect(autoBoop({ ...base, rt: after, leftMs: 20_000 })).toBe('boop')
+  })
+
+  test('big conversations keep auto-booping unless the person chose to stop', () => {
+    const big = { boopsInRow: 0, contextTokens: 400_001 }
+    expect(autoBoop({ ...base, rt: big, leftMs: 20_000 })).toBe('boop')
+    expect(autoBoop({ ...base, settings: { ...base.settings, stopWhenBig: true }, rt: big, leftMs: 20_000 })).toBe('too-big')
+  })
+
+  test('the big-conversation notice suggests /compact with the per-turn cost', () => {
+    const price = priceFor('claude-opus-5-5', 0, {})
+    expect(bigNotice(865_000, price, 'subscription')).toBe(
+      'This conversation is 865k tokens. Every turn re-reads all of it, about $0.17 a turn at API prices. /compact would make each turn cheaper. Auto-boop keeps going.',
+    )
+  })
+})
+
+describe('savings estimate', () => {
+  test('model ids map to the price table', () => {
+    expect(modelKey('claude-opus-5-5')).toBe('opus-5-5')
+    expect(modelKey('claude-opus-4-5-20251101')).toBe('opus-4-5')
+    expect(modelKey('claude-opus-5-20260101[1m]')).toBe('opus-5')
+    expect(modelKey('us.anthropic.claude-sonnet-5-5-v1:0')).toBe('sonnet-5-5')
+    expect(modelKey('claude-3-5-haiku-20241022')).toBe('haiku-3-5')
+    expect(priceFor('some-other-model', 1, {})).toBe(null)
+  })
+
+  test('per turn: cache reads × (input − cache read)', () => {
+    // Opus 5.5: $4 input, $0.20 cache read per million.
+    const price = priceFor('claude-opus-5-5', 1_000_100, {})
+    expect(r6(turnSavedUsd(usage(1_000_000, 0), price))).toBe(3.8)
+  })
+
+  test('Haiku 5.5 switches price above 100k prompt tokens', () => {
+    expect(priceFor('claude-haiku-5-5', 50_000, {})?.input).toBe(0.1)
+    expect(priceFor('claude-haiku-5-5', 150_000, {})?.input).toBe(0.5)
+  })
+
+  test('a boop costs its own usage; it prevents a rebuild only past the window', () => {
+    const price = priceFor('claude-opus-5-5', 0, {})
+    // 200k read at $0.20 + 10 input at $4 + 5 output at $20, per million.
+    expect(r6(boopCostUsd(usage(200_000, 0, 10, 5), price, 5))).toBe(0.04014)
+    // The next turn read 200k from cache 8 minutes after the last real turn:
+    // without boops it would have written them at $5 (5-minute write) instead of reading at $0.20.
+    expect(preventedUsd(usage(200_000, 0), price, 5, 8 * MIN, 1)).toBe(0.96)
+    expect(preventedUsd(usage(200_000, 0), price, 5, 3 * MIN, 1)).toBe(0)
+    expect(preventedUsd(usage(200_000, 0), price, 5, 8 * MIN, 0)).toBe(0)
+  })
+
+  test('subscription mode never shows a bare dollar figure', () => {
+    const price = priceFor('claude-opus-5-5', 0, {})
+    const t = addTurn(emptyTotals(), usage(1_000_000, 0), turnSavedUsd(usage(1_000_000, 0), price), 0)
+    const sub = statsText({ session: t, allTime: t, mode: 'subscription', hasPrices: true, lastWasCached: true, windowMinutes: 5, windowSource: 'assumed', auto: false })
+    for (const m of sub.match(/\$[\d.]+[^\n,·]*/g) ?? []) expect(m).toMatch(/at API prices/)
+    expect(summaryLine(t, t, 'subscription', true)).toMatch(/at API prices/)
+    const api = statsText({ session: t, allTime: t, mode: 'api', hasPrices: true, lastWasCached: true, windowMinutes: 5, windowSource: 'assumed', auto: false })
+    expect(api).not.toMatch(/API prices/)
+    expect(api).toMatch(/\$3\.80/)
+  })
+})
