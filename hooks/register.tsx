@@ -11,6 +11,7 @@ import {
   sumTotals,
   bigNotice,
   awayText,
+  NIGHT_MINUTES,
   tokens,
   autoBoop,
   boopCostUsd,
@@ -238,7 +239,7 @@ function settingsRows(els: Els, $: $, s: Settings) {
     row('Animal', (['bear', 'cat', 'dog'] as const).map(a => ({ key: `animal-${a}`, label: a[0]!.toUpperCase() + a.slice(1), isOn: s.animal === a, press: () => void patch($, { animal: a }) }))),
     row('Faces', (['text', 'emoji'] as const).map(st => ({ key: `style-${st}`, label: st === 'text' ? 'Text' : 'Emoji', isOn: s.style === st, press: () => void patch($, { style: st }) }))),
     row('Auto-boop', [true, false].map(v => ({ key: `auto-${v}`, label: v ? 'On' : 'Off', isOn: s.auto === v, press: () => void setAuto($, v) }))),
-    row('Keep warm', ([60, 120, 0] as const).map(m => ({ key: `away-${m}`, label: m === 0 ? 'No limit' : `${m / 60} hr`, isOn: s.maxAwayMinutes === m, press: () => void patch($, { maxAwayMinutes: m }) }))),
+    row('Keep warm', ([0, 60, 120, NIGHT_MINUTES] as const).map(m => ({ key: `away-${m}`, label: m === 0 ? 'No limit' : m === NIGHT_MINUTES ? 'Night (8 hr)' : `${m / 60} hr`, isOn: s.maxAwayMinutes === m, press: () => void patch($, { maxAwayMinutes: m }) }))),
     row('Sound', [true, false].map(v => ({ key: `sound-${v}`, label: v ? 'On' : 'Off', isOn: s.sound === v, press: () => void patch($, { sound: v }) }))),
     row('Cache window', (['auto', 5, 60] as const).map(t => ({ key: `ttl-${t}`, label: t === 'auto' ? 'Auto' : `${t} min`, isOn: s.ttl === t, press: () => void patch($, { ttl: t }) }))),
   ]
@@ -408,6 +409,10 @@ export const register: Register = on => {
       case 'emoji':
         await patch($, { style: word })
         return { text: `Faces: ${word}.` }
+      case 'night':
+        await patch($, { maxAwayMinutes: NIGHT_MINUTES })
+        if (!settings.auto) await setAuto($, true)
+        return { text: `Night mode: auto-boop keeps the cache warm ${awayText(NIGHT_MINUTES)}.` }
       case 'away': {
         const minutes = arg === 'off' || arg === '0' ? 0 : Number(arg)
         if (!Number.isFinite(minutes) || minutes < 0 || arg === '') return { text: 'Use /boop away <minutes>, e.g. /boop away 120, or /boop away off for no limit.' }

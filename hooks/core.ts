@@ -20,12 +20,15 @@ export const DEFAULT_SETTINGS: Settings = {
   style: 'text',
   ttl: 'auto',
   auto: false,
-  maxAwayMinutes: 60,
+  maxAwayMinutes: 0,
   maxContextTokens: 400_000,
   stopWhenBig: false,
   sound: false,
   prices: {},
 }
+
+/** `/boop night`: keep the cache warm overnight, then let it go. */
+export const NIGHT_MINUTES = 8 * 60
 
 /** Auto-boop fires once this little of the window is left. */
 export const AUTO_BOOP_AT_MS = 30_000
@@ -301,6 +304,7 @@ export function addBoop(t: Totals, cost: number): Totals {
 /** "an hour", "2 hours", "45 minutes"; 0 is no limit. */
 export function awayText(minutes: number): string {
   if (minutes <= 0) return 'for as long as you\'re away'
+  if (minutes === NIGHT_MINUTES) return 'through the night (up to 8 hours)'
   if (minutes === 60) return 'for up to an hour'
   if (minutes % 60 === 0) return `for up to ${minutes / 60} hours`
   return `for up to ${minutes} minutes`
@@ -414,7 +418,8 @@ export const HELP = [
   '/boop bear|cat|dog     swap animal (/boop pup if the dog looks broken)',
   '/boop text|emoji       face style',
   '/boop auto on|off      keep the cache warm while you\'re away',
-  '/boop away 60|120|off  how long auto-boop keeps it warm (off = no limit)',
+  '/boop away off|60|120  how long auto-boop keeps it warm after your last turn (off = no limit, the default)',
+  '/boop night            auto-boop on, warm through the night (8 hours), then it lets go',
   '/boop sound on|off     one soft sound when it gets hungry',
   '/boop window auto|5|60 cache window in minutes (auto detects it)',
   '/boop big keep|stop    keep auto-booping big conversations (default) or stop',
