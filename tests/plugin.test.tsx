@@ -75,7 +75,7 @@ async function aTurn($: Engine, read: number, write: number) {
 }
 
 test('the CLI entry counts down from each turn and goes cold', async ($, on) => {
-  const { clock } = world(on)
+  const { clock } = world(on, { settings: { auto: false } })
   await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
   expect(await status($)).toBe('ʕ•ᴥ•ʔ')
 
@@ -150,7 +150,7 @@ test('a resumed session picks up the countdown where it really is', async ($, on
   on('classic.SessionStart', () => ({}))
   await $.classic.SessionStart({ source: 'resume', seconds_since_last_response: 130, prompt_cache_likely_expired: false })
   await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
-  expect(await status($)).toMatch(/ 2:50$/)
+  expect(await status($)).toMatch(/ 2:50↻$/)
 })
 
 test('a session resumed after the cache lapsed shows cold at once', async ($, on) => {
@@ -173,12 +173,20 @@ test('a model switch shows cold and stops boops until the next message', async (
   expect(shown.forks).toBe(0)
 })
 
-test('CACHE_COMPANIONS_AUTO=1 starts with auto-boop on when nothing is saved', async ($, on) => {
-  const { clock, shown } = world(on, { env: { CACHE_COMPANIONS_AUTO: '1' } })
+test('auto-boop is on out of the box', async ($, on) => {
+  const { clock, shown } = world(on)
   await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
   await aTurn($, 90_000, 0)
   await clock.advance(5 * 60_000)
   expect(shown.forks).toBe(1)
+})
+
+test('CACHE_COMPANIONS_AUTO=0 starts with auto-boop off', async ($, on) => {
+  const { clock, shown } = world(on, { env: { CACHE_COMPANIONS_AUTO: '0' } })
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await aTurn($, 90_000, 0)
+  await clock.advance(5 * 60_000)
+  expect(shown.forks).toBe(0)
 })
 
 test('settings and all-time totals are shared with other sessions on the machine', async ($, on) => {
@@ -192,7 +200,7 @@ test('settings and all-time totals are shared with other sessions on the machine
   await aTurn($, 90_000, 0)
   expect((store.get('totals') as { turns: number }).turns).toBe(7)
   await clock.advance(62_000)
-  expect(await status($)).toBe('(=^･ω･^=) 3:58')
+  expect(await status($)).toBe('(=^･ω･^=) 3:58↻')
 })
 
 test('the app band shows the face, a bar and Boop, and its settings card', async ($, on) => {
@@ -221,6 +229,6 @@ test('the CLI shows the companion at the end of the hint line', async ($, on) =>
   await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
   await aTurn($, 90_000, 0)
   const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', component: 'PromptHint', props: HINT })
-  expect((await ui.find({ type: 'Text' }))?.text).toBe('auto mode on · ʕ^ᴥ^ʔ 5:00')
+  expect((await ui.find({ type: 'Text' }))?.text).toBe('auto mode on · ʕ^ᴥ^ʔ 5:00↻')
   await ui.unmount()
 })

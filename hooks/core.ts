@@ -19,7 +19,8 @@ export const DEFAULT_SETTINGS: Settings = {
   animal: 'bear',
   style: 'text',
   ttl: 'auto',
-  auto: false,
+  // Easy mode: keep the cache warm out of the box.
+  auto: true,
   maxAwayMinutes: 0,
   maxContextTokens: 400_000,
   stopWhenBig: false,
@@ -384,7 +385,7 @@ export function normalizeSettings(raw: unknown): Settings {
     animal: animals.includes(s.animal) ? s.animal : 'bear',
     style: s.style === 'emoji' ? 'emoji' : 'text',
     ttl: s.ttl === 5 || s.ttl === 60 ? s.ttl : 'auto',
-    auto: s.auto === true,
+    auto: s.auto !== false,
     maxAwayMinutes: Number.isFinite(s.maxAwayMinutes) && s.maxAwayMinutes >= 0 ? Math.floor(s.maxAwayMinutes) : DEFAULT_SETTINGS.maxAwayMinutes,
     maxContextTokens:
       Number.isFinite(s.maxContextTokens) && s.maxContextTokens > 0 ? Math.floor(s.maxContextTokens) : DEFAULT_SETTINGS.maxContextTokens,
@@ -412,6 +413,13 @@ export function freshRuntime(): Runtime {
   }
 }
 
+export const ABOUT = [
+  'Cache Companions, by George Samuelson. Feed your cache. Save your tokens.',
+  'I made it because I kept losing my prompt cache between meetings and calls, and with how much I use Claude, that adds up.',
+  "I love animals, and over the past eight years I've rescued more than 20 cats, all self-funded, so the companion had to be an animal.",
+  'It is free. If it saves you money and you want to help the animals: georgesamuelson.com · github.com/georgesamuelson/cache-companions',
+].join('\n')
+
 export const HELP = [
   '/boop                  feed the cache now (runs quietly, nothing in the chat)',
   '/boop settings         pick animal, faces, auto-boop, sound, window',
@@ -426,4 +434,5 @@ export const HELP = [
   '/boop stats            what the cache saved (estimate)',
   '/boop price <model> <input> <write5m> <write1h> <read> <output>   override a price ($/M tokens)',
   '/boop price reset      back to the built-in prices',
+  '/boop about            why this exists, and the animals it helps',
 ].join('\n')

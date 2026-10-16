@@ -1,9 +1,12 @@
 {
   "name": "cache-companions",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Feed your cache. Save your tokens.",
   "types": "./types/index.d.ts",
   "author": {
     "name": "George Samuelson"
-  }
+  },
+  "homepage": "https://github.com/georgesamuelson/cache-companions",
+  "repository": "https://github.com/georgesamuelson/cache-companions",
+  "license": "MIT"
 }

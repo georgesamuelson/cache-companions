@@ -6,6 +6,7 @@ import {
   BOOP_PROMPT,
   FED_MS,
   HELP,
+  ABOUT,
   addBoop,
   addTurn,
   modelKey,
@@ -83,9 +84,9 @@ async function loadSettings($: $) {
     settings = normalizeSettings(raw)
     return
   }
-  // Nothing saved yet (a new machine, or every cloud session): CACHE_COMPANIONS_AUTO=1
-  // in the environment starts with auto-boop on.
-  settings = normalizeSettings({ auto: (await $.env.get('CACHE_COMPANIONS_AUTO')) === '1' })
+  // Nothing saved yet (a new machine, or every cloud session): auto-boop starts on,
+  // unless CACHE_COMPANIONS_AUTO=0 in the environment.
+  settings = normalizeSettings({ auto: (await $.env.get('CACHE_COMPANIONS_AUTO')) !== '0' })
 }
 
 /**
@@ -292,7 +293,7 @@ export const register: Register = on => {
       await $.store.set('welcomed', true)
       // One line: the transcript draws a log line without its line breaks.
       $.ui.log(
-        `${faceFor(settings.animal, settings.style, 'fresh', 1000)} Hi, I'm your cache companion. I get hungry before your prompt cache expires. /boop settings to pick an animal, /boop auto on to keep the cache warm, /boop help for the rest.`,
+        `${faceFor(settings.animal, settings.style, 'fresh', 1000)} Hi, I'm your cache companion. I keep your prompt cache warm while you're away (auto-boop is on; /boop auto off to stop it). /boop settings to pick an animal, /boop help for the rest.`,
       )
     }
 
@@ -410,6 +411,8 @@ export const register: Register = on => {
       case '':
       case 'now':
         return { text: await boop($, 'manual') }
+      case 'about':
+        return { text: ABOUT }
       case 'help':
         return { text: HELP }
       case 'stats':
