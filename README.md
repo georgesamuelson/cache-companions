@@ -168,6 +168,8 @@ The countdown follows the rules Claude Code itself uses for the main conversatio
 
 It re-checks every 10 seconds, so the timer switches from 60 to 5 minutes the moment you go onto credits. You can tell you're on credits because Claude Code reports your plan's usage at 100%. Until the first reply it assumes 5 minutes, so the animal gets hungry early, never late. `/boop window 5` or `60` overrides all of this; `/boop stats` says which applies.
 
+**It checks itself.** If a reply that came more than 5 minutes after the last feed still had to rebuild the cache, on the same model, the hour window was wrong: the timer switches to 5 minutes and says so. Each turn's token counts show whether the cache was read or rebuilt, and `/boop stats` shows it as "Last turn".
+
 **On usage credits,** auto-boop spends real money while you're away, so the companion says so once and suggests `/boop night` or `/boop away 60`.
 
 ## How the savings estimate works

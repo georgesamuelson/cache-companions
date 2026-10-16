@@ -140,6 +140,17 @@ export function resolveWindow(setting: TtlSetting, rule: 5 | 60 | null): { minut
   return { minutes: 5, source: 'assumed' }
 }
 
+/**
+ * A check on the hour window from what a turn actually did: a turn that came
+ * more than five minutes after the cache was fed, on the same model, and still
+ * had to rebuild, shows the cache was really five minutes.
+ */
+export function showsShortWindow(windowMinutes: number, gapMs: number | null, sameModel: boolean, u: Usage): boolean {
+  if (windowMinutes !== 60 || gapMs === null || !sameModel) return false
+  if (gapMs < 5 * 60_000 + 20_000 || gapMs > 60 * 60_000) return false
+  return !isCached(u) && u.cache_creation_input_tokens > 1024
+}
+
 /** Past 100% of a plan window, a subscription is drawing on usage credits. */
 export function isOnCredits(rateLimits: readonly { percentUsed: number }[]): boolean {
   return rateLimits.some(r => r.percentUsed >= 100)
@@ -359,7 +370,7 @@ export function statsText(a: {
     }
     return lines.join('\n')
   }
-  const source = { 'claude-code': 'how Claude Code sets it for your plan', learned: 'learned', assumed: 'assumed until the first reply', setting: 'your setting' }[a.windowSource]
+  const source = { 'claude-code': 'how Claude Code sets it for your plan', learned: 'corrected from what your replies showed', assumed: 'assumed until the first reply', setting: 'your setting' }[a.windowSource]
   const last = a.lastWasCached === null ? 'no turn yet' : a.lastWasCached ? 'served from cache' : 'rebuilt the cache'
   return [
     block('This session', a.session),

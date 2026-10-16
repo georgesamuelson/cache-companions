@@ -195,6 +195,16 @@ test('a subscription within its plan gets the hour window', async ($, on) => {
   expect(await status($)).toBe('ʕ^ᴥ^ʔ 60:00')
 })
 
+test('a rebuild where the hour window said warm switches the timer to 5 minutes', async ($, on) => {
+  const { clock, shown } = world(on, { percentUsed: 40, settings: { auto: false } })
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await aTurn($, 90_000, 0)
+  await clock.advance(8 * 60_000)
+  await aTurn($, 0, 90_000)
+  expect(shown.toasts.some(t => /last 5 minutes/.test(t))).toBe(true)
+  expect(await status($)).toBe('ʕ^ᴥ^ʔ 5:00')
+})
+
 test('auto-boop is on out of the box', async ($, on) => {
   const { clock, shown } = world(on)
   await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })

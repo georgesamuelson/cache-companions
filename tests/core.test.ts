@@ -15,6 +15,7 @@ import {
   resolveWindow,
   claudeCodeWindow,
   isOnCredits,
+  showsShortWindow,
   statsText,
   statusText,
   summaryLine,
@@ -91,6 +92,14 @@ describe('the cache window', () => {
     expect(claudeCodeWindow({ ...base, mode: 'api', onCredits: false, enable1h: '1' })).toBe(60)
     expect(claudeCodeWindow({ ...base, mode: 'subscription', onCredits: false, envTtl: '5m', settingTtl: '1h' })).toBe(5)
     expect(claudeCodeWindow({ ...base, mode: 'subscription', onCredits: false, force5m: '1', envTtl: '1h' })).toBe(5)
+  })
+
+  test('a rebuild after 5+ minutes on the same model shows the hour window was wrong', () => {
+    expect(showsShortWindow(60, 8 * MIN, true, usage(0, 90_000))).toBe(true)
+    expect(showsShortWindow(60, 8 * MIN, true, usage(90_000, 0))).toBe(false)
+    expect(showsShortWindow(60, 3 * MIN, true, usage(0, 90_000))).toBe(false)
+    expect(showsShortWindow(60, 8 * MIN, false, usage(0, 90_000))).toBe(false)
+    expect(showsShortWindow(5, 8 * MIN, true, usage(0, 90_000))).toBe(false)
   })
 
   test('past 100% of a plan window means usage credits', () => {

@@ -31,6 +31,7 @@ import {
   resolveWindow,
   claudeCodeWindow,
   isOnCredits,
+  showsShortWindow,
   statsText,
   statusText,
   summaryLine,
@@ -63,7 +64,10 @@ let resumedAt: number | null = null
 let sessionReady = false
 let lastView = ''
 
-const windowNow = () => resolveWindow(settings.ttl, rule)
+/** Set when a turn showed the hour window was wrong; cleared when the plan state changes. */
+let seenShort = false
+const windowNow = () =>
+  settings.ttl === 'auto' && seenShort ? { minutes: 5 as const, source: 'learned' as const } : resolveWindow(settings.ttl, rule)
 
 async function saveRuntime($: $) {
   await $.state.set(RUNTIME, rt)
@@ -130,7 +134,9 @@ async function readWindowRule($: $) {
     mode = billing
     await $.store.set('billing', mode)
   }
-  onCredits = isOnCredits(rateLimits)
+  const credits = isOnCredits(rateLimits)
+  if (credits !== onCredits) seenShort = false
+  onCredits = credits
   const all = (await $.settings.read()) as Record<string, unknown>
   rule = claudeCodeWindow({
     force5m: await $.env.get('FORCE_PROMPT_CACHING_5M'),
@@ -367,6 +373,11 @@ export const register: Register = on => {
 
     const now = await $.clock.now()
     const startedAt = now - e.durationMs
+    const sameModel = rt.model !== null && modelKey(rt.model) === modelKey(u.model)
+    if (showsShortWindow(windowNow().minutes, rt.lastFedAt === null ? null : startedAt - rt.lastFedAt, sameModel, u)) {
+      seenShort = true
+      $.ui.toast('Your cache turned out to last 5 minutes, not an hour, so the timer now uses 5.')
+    }
 
     const win = windowNow()
     const price = priceFor(u.model, promptTokens(u), settings.prices)

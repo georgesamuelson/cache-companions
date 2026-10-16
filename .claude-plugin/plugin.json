@@ -1,6 +1,6 @@
 {
   "name": "cache-companions",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "description": "Feed your cache. Save your tokens.",
   "types": "./types/index.d.ts",
   "author": {
