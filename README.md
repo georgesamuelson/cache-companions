@@ -149,6 +149,8 @@ The cache-read refreshes the cache's lifetime, so the countdown starts again. A 
 
 - only if you set a limit. By default it keeps going for as long as you're away. `/boop away 60` (or `120`) stops it that many minutes after your last turn, and `/boop night` keeps it warm through the night (8 hours) and then lets go. When it stops it shows a toast and the animal goes cold; your next prompt starts it again.
 
+**Missed boops.** If an auto-boop finds the cache already gone (it paid to rebuild), auto-boop pauses until your next message instead of paying again.
+
 **Big conversations.** When a conversation passes `maxContextTokens` (default 400,000), a toast says once how big it is and what each turn costs to re-read, and suggests `/compact`. Auto-boop keeps going: keeping a big conversation warm still costs far less than rebuilding it. If you'd rather it stopped, use `/boop big stop`.
 
 **Switching models.** A model can't read another model's cache, so after `/model` the companion shows cold straight away, auto-boop waits, and your next message builds a fresh cache.

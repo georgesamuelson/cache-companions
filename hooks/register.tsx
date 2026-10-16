@@ -53,6 +53,8 @@ let mode: BillingMode = 'api'
 let rule: 5 | 60 | null = null
 let onCredits = false
 let creditsNotified = false
+/** An auto-boop found the cache gone: wait for a real turn rather than pay to rebuild again. */
+let boopMissed = false
 let isBusy = false
 let isBooping = false
 let bigStopNotified = false
@@ -184,7 +186,7 @@ async function refresh($: $) {
 
   const awayMs = rt.lastRealTurnAt === null ? null : now - rt.lastRealTurnAt
   const decision = autoBoop({ settings, rt, awayMs, leftMs: c.leftMs, isBusy, isBooping })
-  if (decision === 'boop') {
+  if (decision === 'boop' && !boopMissed) {
     void boop($, 'auto')
   } else if (decision === 'cap' && !rt.capNotified) {
     rt = { ...rt, capNotified: true }
@@ -225,7 +227,13 @@ async function boop($: $, origin: 'auto' | 'manual'): Promise<string> {
     }
     await saveRuntime($)
     await refresh($)
-    if (u && !isCached(u)) return 'Booped. The cache had already expired, so this boop rebuilt it.'
+    if (u && !isCached(u)) {
+      if (origin === 'auto') {
+        boopMissed = true
+        $.ui.toast('That boop found the cache already gone, so it paid to rebuild. Auto-boop waits for your next message now.', { timeoutMs: 10000 })
+      }
+      return 'Booped. The cache had already expired, so this boop rebuilt it.'
+    }
     return `Booped. Cache warm for ${win.minutes}:00.`
   } finally {
     isBooping = false
@@ -355,6 +363,7 @@ export const register: Register = on => {
     }
 
     await readWindowRule($)
+    boopMissed = false
 
     const now = await $.clock.now()
     const startedAt = now - e.durationMs

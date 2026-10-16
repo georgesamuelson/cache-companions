@@ -11,7 +11,7 @@ const usage = (read: number, write: number) => ({
 })
 
 /** The engine beneath the plugin: what it asks of the session, and what it shows. */
-function world(on: On, opts: { kind?: string; settings?: object; env?: Record<string, string>; percentUsed?: number } = {}) {
+function world(on: On, opts: { kind?: string; settings?: object; env?: Record<string, string>; percentUsed?: number; forkRebuilds?: boolean } = {}) {
   const model = { current: 'claude-opus-5-5' }
   const clock = mock.clock(on, { now: 1_000_000 })
   // The machine's plugin store, which every session on it shares.
@@ -39,7 +39,7 @@ function world(on: On, opts: { kind?: string; settings?: object; env?: Record<st
   on('ui.log', () => ({ value: undefined }))
   on('model.fork', () => {
     shown.forks += 1
-    return { value: { isAnswered: true as const, text: 'boop', usage: usage(80_000, 0) } }
+    return { value: { isAnswered: true as const, text: 'boop', usage: opts.forkRebuilds ? usage(0, 90_000) : usage(80_000, 0) } }
   })
   on('session.start', () => ({ cwd: '/' }))
   on('env.get', (_$, e) => ({ value: opts.env?.[e.name] }))
@@ -161,6 +161,19 @@ test('a session resumed after the cache lapsed shows cold at once', async ($, on
   await $.classic.SessionStart({ source: 'resume', seconds_since_last_response: 400, prompt_cache_likely_expired: true })
   await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
   expect(await status($)).toBe('ʕ-ᴥ-ʔᶻᶻ')
+})
+
+test('an auto-boop that finds the cache gone pauses until the next message', async ($, on) => {
+  const { clock, shown } = world(on, { forkRebuilds: true })
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await aTurn($, 90_000, 0)
+  await clock.advance(5 * 60_000)
+  await clock.advance(5 * 60_000)
+  expect(shown.forks).toBe(1)
+  expect(shown.toasts.some(t => /already gone/.test(t))).toBe(true)
+  await aTurn($, 90_000, 0)
+  await clock.advance(5 * 60_000)
+  expect(shown.forks).toBe(2)
 })
 
 test('a model switch shows cold and stops boops until the next message', async ($, on) => {
