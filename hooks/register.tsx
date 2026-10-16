@@ -10,6 +10,7 @@ import {
   addTurn,
   sumTotals,
   bigNotice,
+  awayText,
   tokens,
   autoBoop,
   boopCostUsd,
@@ -136,12 +137,13 @@ async function refresh($: $) {
     if (settings.sound) $.audio.play({ asset: SOUND }, { gain: 0.5 }).catch(() => {})
   }
 
-  const decision = autoBoop({ settings, rt, leftMs: c.leftMs, isBusy, isBooping })
+  const awayMs = rt.lastRealTurnAt === null ? null : now - rt.lastRealTurnAt
+  const decision = autoBoop({ settings, rt, awayMs, leftMs: c.leftMs, isBusy, isBooping })
   if (decision === 'boop') {
     void boop($, 'auto')
   } else if (decision === 'cap' && !rt.capNotified) {
     rt = { ...rt, capNotified: true }
-    $.ui.toast(`Auto-boop paused after ${settings.maxBoops} boops with no prompt. Send a prompt to start it again.`, { timeoutMs: 8000 })
+    $.ui.toast(`Auto-boop paused: you've been away a while, so I let the cache go cold. Your next prompt starts it again. (/boop away to change how long.)`, { timeoutMs: 8000 })
   } else if (decision === 'too-big' && !bigStopNotified) {
     bigStopNotified = true
     $.ui.toast(`Auto-boop paused: this conversation is over ${tokens(settings.maxContextTokens)} tokens (your setting: /boop big stop).`, { timeoutMs: 8000 })
@@ -192,7 +194,7 @@ async function setAuto($: $, auto: boolean) {
   bigStopNotified = false
   $.ui.toast(
     auto
-      ? `Auto-boop on: I'll keep the cache warm, up to ${settings.maxBoops} boops in a row while you're away.`
+      ? `Auto-boop on: I'll keep your cache warm while you're away, ${awayText(settings.maxAwayMinutes)}.`
       : 'Auto-boop off.',
   )
   await saveSettings($)
@@ -236,6 +238,7 @@ function settingsRows(els: Els, $: $, s: Settings) {
     row('Animal', (['bear', 'cat', 'dog'] as const).map(a => ({ key: `animal-${a}`, label: a[0]!.toUpperCase() + a.slice(1), isOn: s.animal === a, press: () => void patch($, { animal: a }) }))),
     row('Faces', (['text', 'emoji'] as const).map(st => ({ key: `style-${st}`, label: st === 'text' ? 'Text' : 'Emoji', isOn: s.style === st, press: () => void patch($, { style: st }) }))),
     row('Auto-boop', [true, false].map(v => ({ key: `auto-${v}`, label: v ? 'On' : 'Off', isOn: s.auto === v, press: () => void setAuto($, v) }))),
+    row('Keep warm', ([60, 120, 0] as const).map(m => ({ key: `away-${m}`, label: m === 0 ? 'No limit' : `${m / 60} hr`, isOn: s.maxAwayMinutes === m, press: () => void patch($, { maxAwayMinutes: m }) }))),
     row('Sound', [true, false].map(v => ({ key: `sound-${v}`, label: v ? 'On' : 'Off', isOn: s.sound === v, press: () => void patch($, { sound: v }) }))),
     row('Cache window', (['auto', 5, 60] as const).map(t => ({ key: `ttl-${t}`, label: t === 'auto' ? 'Auto' : `${t} min`, isOn: s.ttl === t, press: () => void patch($, { ttl: t }) }))),
   ]
@@ -405,6 +408,12 @@ export const register: Register = on => {
       case 'emoji':
         await patch($, { style: word })
         return { text: `Faces: ${word}.` }
+      case 'away': {
+        const minutes = arg === 'off' || arg === '0' ? 0 : Number(arg)
+        if (!Number.isFinite(minutes) || minutes < 0 || arg === '') return { text: 'Use /boop away <minutes>, e.g. /boop away 120, or /boop away off for no limit.' }
+        await patch($, { maxAwayMinutes: Math.floor(minutes) })
+        return { text: `Auto-boop keeps the cache warm ${awayText(Math.floor(minutes))}.` }
+      }
       case 'big': {
         if (arg !== 'keep' && arg !== 'stop') return { text: 'Use /boop big keep (auto-boop big conversations too) or /boop big stop.' }
         await patch($, { stopWhenBig: arg === 'stop' })

@@ -20,7 +20,7 @@ export const DEFAULT_SETTINGS: Settings = {
   style: 'text',
   ttl: 'auto',
   auto: false,
-  maxBoops: 10,
+  maxAwayMinutes: 60,
   maxContextTokens: 400_000,
   stopWhenBig: false,
   sound: false,
@@ -163,8 +163,10 @@ export function windowFromWrites(split: { ephemeral_5m_input_tokens?: number; ep
 // ---------- auto-boop ----------
 
 export type AutoBoopCheck = {
-  settings: Pick<Settings, 'auto' | 'maxBoops' | 'maxContextTokens' | 'stopWhenBig'>
-  rt: Pick<Runtime, 'boopsInRow' | 'contextTokens'>
+  settings: Pick<Settings, 'auto' | 'maxAwayMinutes' | 'maxContextTokens' | 'stopWhenBig'>
+  rt: Pick<Runtime, 'contextTokens'>
+  /** How long since your last turn ended; null before the first. */
+  awayMs: number | null
   leftMs: number | null
   isBusy: boolean
   isBooping: boolean
@@ -176,7 +178,7 @@ export function autoBoop(c: AutoBoopCheck): AutoBoopDecision {
   if (!c.settings.auto || c.isBusy || c.isBooping || c.leftMs === null) return 'wait'
   if (c.leftMs > AUTO_BOOP_AT_MS || c.leftMs < AUTO_BOOP_LATEST_MS) return 'wait'
   if (c.settings.stopWhenBig && c.rt.contextTokens > c.settings.maxContextTokens) return 'too-big'
-  if (c.rt.boopsInRow >= c.settings.maxBoops) return 'cap'
+  if (c.settings.maxAwayMinutes > 0 && c.awayMs !== null && c.awayMs > c.settings.maxAwayMinutes * 60_000) return 'cap'
   return 'boop'
 }
 
@@ -296,6 +298,14 @@ export function addBoop(t: Totals, cost: number): Totals {
 
 // ---------- words ----------
 
+/** "an hour", "2 hours", "45 minutes"; 0 is no limit. */
+export function awayText(minutes: number): string {
+  if (minutes <= 0) return 'for as long as you\'re away'
+  if (minutes === 60) return 'for up to an hour'
+  if (minutes % 60 === 0) return `for up to ${minutes / 60} hours`
+  return `for up to ${minutes} minutes`
+}
+
 export function tokens(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`
   if (n >= 1_000) return `${Math.round(n / 1_000)}k`
@@ -371,7 +381,7 @@ export function normalizeSettings(raw: unknown): Settings {
     style: s.style === 'emoji' ? 'emoji' : 'text',
     ttl: s.ttl === 5 || s.ttl === 60 ? s.ttl : 'auto',
     auto: s.auto === true,
-    maxBoops: Number.isFinite(s.maxBoops) && s.maxBoops > 0 ? Math.floor(s.maxBoops) : DEFAULT_SETTINGS.maxBoops,
+    maxAwayMinutes: Number.isFinite(s.maxAwayMinutes) && s.maxAwayMinutes >= 0 ? Math.floor(s.maxAwayMinutes) : DEFAULT_SETTINGS.maxAwayMinutes,
     maxContextTokens:
       Number.isFinite(s.maxContextTokens) && s.maxContextTokens > 0 ? Math.floor(s.maxContextTokens) : DEFAULT_SETTINGS.maxContextTokens,
     sound: s.sound === true,
@@ -403,7 +413,8 @@ export const HELP = [
   '/boop settings         pick animal, faces, auto-boop, sound, window',
   '/boop bear|cat|dog     swap animal (/boop pup if the dog looks broken)',
   '/boop text|emoji       face style',
-  '/boop auto on|off      keep the cache warm for you',
+  '/boop auto on|off      keep the cache warm while you\'re away',
+  '/boop away 60|120|off  how long auto-boop keeps it warm (off = no limit)',
   '/boop sound on|off     one soft sound when it gets hungry',
   '/boop window auto|5|60 cache window in minutes (auto detects it)',
   '/boop big keep|stop    keep auto-booping big conversations (default) or stop',

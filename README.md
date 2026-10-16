@@ -87,13 +87,14 @@ If your terminal draws the dog's ears `૮ ა` as boxes, use `/boop pup` for `�
 | `/boop auto on` · `off` | Turns auto-boop on or off. It's off by default. |
 | `/boop sound on` · `off` | Plays one soft sound per hungry spell. It's off by default. |
 | `/boop big keep` · `stop` | Whether auto-boop keeps going on conversations over `maxContextTokens`. `keep` is the default. |
+| `/boop away 60` · `120` · `off` | How long auto-boop keeps the cache warm after your last turn, in minutes. `off` means no limit. The default is 60. |
 | `/boop window auto` · `5` · `60` | Sets the cache window in minutes. `auto` (the default) detects it. |
 | `/boop stats` | Shows session and all-time savings. |
 | `/boop price <model> <input> <write5m> <write1h> <read> <output>` | Overrides one model's prices, in dollars per million tokens, e.g. `/boop price opus-5-5 4 5 8 0.2 20`. |
 | `/boop price reset` | Goes back to the built-in prices. |
 | `/boop help` | Lists the commands. |
 
-Settings and all-time totals are kept across sessions and shared by every session on the same machine, CLI and desktop app alike: a change in one shows in the others within about 10 seconds. Cloud sessions keep their own. Two limits live in the same settings: `maxBoops` (default 10) and `maxContextTokens` (default 400,000).
+Settings and all-time totals are kept across sessions and shared by every session on the same machine, CLI and desktop app alike: a change in one shows in the others within about 10 seconds. Cloud sessions keep their own. Two limits live in the same settings: `maxAwayMinutes` (default 60) and `maxContextTokens` (default 400,000).
 
 ## How a boop works
 
@@ -103,7 +104,7 @@ The cache-read refreshes the cache's lifetime, so the countdown starts again. A 
 
 **Auto-boop** boops when about 30 seconds of the window are left. It stops:
 
-- after `maxBoops` boops in a row with no prompt from you (default 10). It shows a toast and the animal goes cold. Your next prompt starts the count again.
+- once you've been away longer than `maxAwayMinutes` (default an hour; `/boop away 120` for two, `/boop away off` for no limit). It shows a toast and the animal goes cold. Your next prompt starts it again.
 
 **Big conversations.** When a conversation passes `maxContextTokens` (default 400,000), a toast says once how big it is and what each turn costs to re-read, and suggests `/compact`. Auto-boop keeps going: keeping a big conversation warm still costs far less than rebuilding it. If you'd rather it stopped, use `/boop big stop`.
 

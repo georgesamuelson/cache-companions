@@ -84,8 +84,8 @@ test('the CLI entry counts down from each turn and goes cold', async ($, on) => 
   expect(await status($)).toBe('ʕ-ᴥ-ʔᶻᶻ')
 })
 
-test('auto-boop keeps the cache warm, stops at the cap, and a real prompt restarts it', async ($, on) => {
-  const { clock, shown } = world(on, { settings: { auto: true, maxBoops: 2 } })
+test('auto-boop keeps the cache warm, stops after the away limit, and a real prompt restarts it', async ($, on) => {
+  const { clock, shown } = world(on, { settings: { auto: true, maxAwayMinutes: 10 } })
   await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
   await aTurn($, 90_000, 1_000)
   expect(await status($)).toMatch(/↻$/)
@@ -97,7 +97,7 @@ test('auto-boop keeps the cache warm, stops at the cap, and a real prompt restar
   expect(shown.forks).toBe(2)
   await clock.advance(5 * 60_000)
   expect(shown.forks).toBe(2)
-  expect(shown.toasts.some(t => /paused after 2 boops/.test(t))).toBe(true)
+  expect(shown.toasts.some(t => /been away a while/.test(t))).toBe(true)
 
   // The cache went cold meanwhile, so this turn rebuilds it.
   await $.prompt.submit({ text: 'hello', origin: { kind: 'composer' }, wait: false })

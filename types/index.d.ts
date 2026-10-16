@@ -19,7 +19,8 @@ export type Settings = {
   style: FaceStyle
   ttl: TtlSetting
   auto: boolean
-  maxBoops: number
+  /** Auto-boop keeps the cache warm this long after your last turn; 0 = no limit. */
+  maxAwayMinutes: number
   /** Past this many tokens the companion suggests /compact. */
   maxContextTokens: number
   /** Stop auto-boop past maxContextTokens; off by default (it keeps booping). */

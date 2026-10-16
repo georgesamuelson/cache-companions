@@ -108,7 +108,7 @@ test('a resume starts the countdown from the last reply, or cold if it lapsed', 
 })
 
 describe('auto-boop', () => {
-  const base = { settings: { auto: true, maxBoops: 10, maxContextTokens: 400_000, stopWhenBig: false }, isBusy: false, isBooping: false }
+  const base = { settings: { auto: true, maxAwayMinutes: 60, maxContextTokens: 400_000, stopWhenBig: false }, isBusy: false, isBooping: false, awayMs: 10 * MIN }
 
   test('boops only in the last 30 seconds, and only when idle', () => {
     const rt = { boopsInRow: 0, contextTokens: 50_000 }
@@ -118,21 +118,23 @@ describe('auto-boop', () => {
     expect(autoBoop({ ...base, rt, leftMs: 25_000, settings: { ...base.settings, auto: false } })).toBe('wait')
   })
 
-  test('the cap stops auto-boop after maxBoops in a row', () => {
-    expect(autoBoop({ ...base, rt: { boopsInRow: 9, contextTokens: 1 }, leftMs: 20_000 })).toBe('boop')
-    expect(autoBoop({ ...base, rt: { boopsInRow: 10, contextTokens: 1 }, leftMs: 20_000 })).toBe('cap')
+  test('auto-boop stops once you have been away longer than maxAwayMinutes; 0 means no limit', () => {
+    const rt = { contextTokens: 1 }
+    expect(autoBoop({ ...base, rt, awayMs: 59 * MIN, leftMs: 20_000 })).toBe('boop')
+    expect(autoBoop({ ...base, rt, awayMs: 61 * MIN, leftMs: 20_000 })).toBe('cap')
+    expect(autoBoop({ ...base, rt, awayMs: 600 * MIN, leftMs: 20_000, settings: { ...base.settings, maxAwayMinutes: 0 } })).toBe('boop')
   })
 
   test('a real prompt resets the count', () => {
-    const capped = { ...freshRuntime(), boopsInRow: 10, capNotified: true }
+    const capped = { ...freshRuntime(), capNotified: true }
     const after = onRealPrompt(capped)
-    expect(after.boopsInRow).toBe(0)
     expect(after.capNotified).toBe(false)
-    expect(autoBoop({ ...base, rt: after, leftMs: 20_000 })).toBe('boop')
+    // The turn that prompt starts sets a new last-turn time, so time away starts over.
+    expect(autoBoop({ ...base, rt: after, awayMs: 0, leftMs: 20_000 })).toBe('boop')
   })
 
   test('big conversations keep auto-booping unless the person chose to stop', () => {
-    const big = { boopsInRow: 0, contextTokens: 400_001 }
+    const big = { contextTokens: 400_001 }
     expect(autoBoop({ ...base, rt: big, leftMs: 20_000 })).toBe('boop')
     expect(autoBoop({ ...base, settings: { ...base.settings, stopWhenBig: true }, rt: big, leftMs: 20_000 })).toBe('too-big')
   })
