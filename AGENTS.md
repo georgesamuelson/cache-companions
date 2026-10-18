@@ -1,6 +1,6 @@
 # Cache Companions: notes for coding agents
 
-Read this first, then `STATUS.md` (where things stand), `docs/SPEC.md` (what it is and why) and `CHANGELOG.md` (what changed). Claude Code reads this file through `CLAUDE.md`; Codex and other agents read it directly.
+Read this first, then `STATUS.md` (where things stand), `ROADMAP.md` (to-dos and ideas), `docs/SPEC.md` (what it is and why) and `CHANGELOG.md` (what changed). Claude Code reads this file through `CLAUDE.md`; Codex and other agents read it directly.
 
 A Claude Code mod (a plugin with a hooks module): a small animal that watches the prompt-cache countdown, keeps the cache warm while you're away (auto-boop), and estimates what the cache saved. Owner: George Samuelson. Public, MIT.
 
