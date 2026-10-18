@@ -39,4 +39,8 @@ In a fresh checkout without `.claude-plugin/types/`, type-check with a tsconfig 
 - `/boop show off|percent|saved|tokens|streak`: one figure after the timer.
 - Beat your own score: money saved as the headline, personal bests per day/week, milestones (1M/10M tokens, $10/$100), warm streak counting only turns you came back to.
 - Ideas from Nate's Cache Keeper post: band buttons for Compact and Handoff / Clear & Continue, plan-usage limits beside the timer, a heads-up about 5 minutes before expiry.
+- Update notice: once a day read the latest version from this repo on GitHub; if newer, one toast with the update line; `/boop update`, `/boop updates off`; README privacy note to say this read is the only network call.
 - Rescue photos in the README "Help the animals" section when George sends them.
+
+## Later
+- Port the rules in `hooks/core.ts` to other coding agents with plugin systems, starting with the Pi coding agent, after checking its extension API exposes per-turn token usage and a UI slot.

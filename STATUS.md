@@ -13,7 +13,7 @@
 - George: turn on Settings → Sponsorships in the GitHub repo if the Sponsor button doesn't show.
 
 ## Next
-v0.3, the "game" (see AGENTS.md → Next): `/boop show`, personal bests, milestones, warm streak; Compact / Handoff buttons; plan-usage beside the timer; a 5-minute warning.
+v0.3 (see ROADMAP.md): the "game" (`/boop show`, personal bests, milestones, warm streak); Compact / Handoff buttons; plan usage beside the timer; a 5-minute warning; a daily update notice. Later: research a port to the Pi coding agent.
 
 ## Known limits
 - Claude Code draws no plugin UI in cloud sessions.
