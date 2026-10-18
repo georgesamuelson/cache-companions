@@ -80,7 +80,7 @@ json.dump(s, open(p, 'w'), indent=2)
 PY
 ```
 
-New cloud sessions pick it up from their first message. Settings and totals start fresh in each one.
+New cloud sessions pick it up from their first message. Settings and totals start fresh in each one (easy mode), and changes there stay in that session's container: they don't reach your computer or other cloud sessions. `/boop settings` lists the current settings as text there, since no pane is drawn.
 
 ### Updating
 

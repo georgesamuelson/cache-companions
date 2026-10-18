@@ -15,6 +15,8 @@ import {
   resolveWindow,
   claudeCodeWindow,
   isOnCredits,
+  settingsText,
+  DEFAULT_SETTINGS,
   showsShortWindow,
   statsText,
   statusText,
@@ -100,6 +102,10 @@ describe('the cache window', () => {
     expect(showsShortWindow(60, 3 * MIN, true, usage(0, 90_000))).toBe(false)
     expect(showsShortWindow(60, 8 * MIN, false, usage(0, 90_000))).toBe(false)
     expect(showsShortWindow(5, 8 * MIN, true, usage(0, 90_000))).toBe(false)
+  })
+
+  test('settings as text for sessions with no pane', () => {
+    expect(settingsText(DEFAULT_SETTINGS, 5, 'claude-code')).toContain('Auto-boop: on · Keep warm: always · Window: auto (now 5 min)')
   })
 
   test('past 100% of a plan window means usage credits', () => {

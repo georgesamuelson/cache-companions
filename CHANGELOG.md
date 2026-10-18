@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.2.7 · 2026-10-18
+- `/boop settings` lists the settings as text where no pane can be drawn (cloud sessions).
+
 ## 0.2.6 · 2026-10-16
 - A reply that had to rebuild where the hour window said warm switches the timer to 5 minutes.
 ## 0.2.5

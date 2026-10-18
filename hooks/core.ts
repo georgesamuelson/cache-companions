@@ -417,6 +417,17 @@ export function freshRuntime(): Runtime {
   }
 }
 
+/** The settings as one plain block, for sessions that draw no pane (cloud). */
+export function settingsText(s: Settings, windowMinutes: number, windowSource: TtlSource): string {
+  const away = s.maxAwayMinutes === 0 ? 'always' : s.maxAwayMinutes === NIGHT_MINUTES ? 'night (8 h)' : `${s.maxAwayMinutes} min`
+  const window = s.ttl === 'auto' ? `auto (now ${windowMinutes} min)` : `${windowMinutes} min (your setting)`
+  return [
+    `Animal: ${s.animal} · Faces: ${s.style} · Sound: ${s.sound ? 'on' : 'off'}`,
+    `Auto-boop: ${s.auto ? 'on' : 'off'} · Keep warm: ${away} · Window: ${window}`,
+    'Change with /boop bear|cat|dog, /boop auto on|off, /boop away off|60|120, /boop night, /boop window auto|5|60.',
+  ].join('\n')
+}
+
 export const ABOUT = [
   'Cache Companions, by George Samuelson. Feed your cache. Save your tokens.',
   'I made it because I kept losing my prompt cache between meetings and calls, and with how much I use Claude, that adds up.',

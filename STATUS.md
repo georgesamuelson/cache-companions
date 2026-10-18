@@ -1,6 +1,6 @@
 # Status
 
-**Last updated:** 2026-10-18 · **Version:** 0.2.6 · **Branch:** main
+**Last updated:** 2026-10-18 · **Version:** 0.2.7 · **Branch:** main
 
 ## Where it stands
 - Public at github.com/georgesamuelson/cache-companions (MIT), installable with `/plugin install cache-companions --marketplace georgesamuelson/cache-companions`.

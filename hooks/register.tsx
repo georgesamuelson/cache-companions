@@ -7,6 +7,7 @@ import {
   FED_MS,
   HELP,
   ABOUT,
+  settingsText,
   addBoop,
   addTurn,
   modelKey,
@@ -435,9 +436,13 @@ export const register: Register = on => {
         return { text: HELP }
       case 'stats':
         return { text: stats() }
-      case 'settings':
-        await $.ui.open({ id: PANE, title: 'Cache Companions', focus: true, closeOnEscape: true })
-        return { text: 'Cache Companions settings opened.' }
+      case 'settings': {
+        const opened = await $.ui.open({ id: PANE, title: 'Cache Companions', focus: true, closeOnEscape: true })
+        if (opened.isPlaced) return { text: 'Cache Companions settings opened.' }
+        // Nothing draws the pane here (a cloud session): list the settings instead.
+        const win = windowNow()
+        return { text: settingsText(settings, win.minutes, win.source) }
+      }
       case 'auto':
       case 'sound': {
         if (arg !== 'on' && arg !== 'off') return { text: `Use /boop ${word} on or /boop ${word} off.` }
