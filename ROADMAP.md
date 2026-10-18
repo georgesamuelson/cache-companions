@@ -16,6 +16,14 @@ Ideas from anyone go in GitHub Issues; this file is the working list. Tick items
 - [ ] Plan usage (5-hour and weekly) beside the timer
 - [ ] A heads-up about 5 minutes before the cache expires (1-hour window)
 
+## v0.3: update notice
+- [ ] Once a day, read the latest version number from this repo on GitHub; if it's newer than the one running, show one toast: "Cache Companions X is out" with the update line
+- [ ] `/boop update` shows the one-line update command; `/boop updates off` turns the check off
+- [ ] Update the README privacy note: the only network call is reading that public version number
+
+## Later: other agents
+- [ ] Port the rules in `hooks/core.ts` (countdown, window, savings) to other coding agents with plugin systems, starting with the Pi coding agent if its extension API exposes per-turn token usage and a UI slot. Research before building.
+
 ## Support and the animals
 - [x] README "Why I made this" and "Help the animals"
 - [x] Buy Me a Coffee, Venmo, Instagram, X, website links; Sponsor button file
