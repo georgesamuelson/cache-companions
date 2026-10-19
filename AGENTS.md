@@ -24,6 +24,17 @@ In a fresh checkout without `.claude-plugin/types/`, type-check with a tsconfig 
 3. Commit and push to `main`.
 4. Users: `claude plugin marketplace update cache-companions && claude plugin update cache-companions@cache-companions`, then `/reload-plugins` (local) or a new session. Cloud sessions fetch the latest from their setup script when a fresh container starts (not when a session resumes).
 
+## Where it runs (local vs cloud)
+| | CLI (George's Mac) | Desktop app, local session | Cloud session (claude.ai/code) |
+|---|---|---|---|
+| Shows | face + timer at the end of the hint line | band above the prompt | nothing drawn (hooks still run) |
+| `/boop settings` | settings pane | settings pane | settings listed as text |
+| Settings and totals | shared with the desktop app on the same Mac | shared with the CLI | only that container; fresh ones start in easy mode |
+| Install | `/plugin install … --marketplace georgesamuelson/cache-companions` (user scope) | same install | setup script clones this repo into `~/.claude/cache-companions` and sets `CLAUDE_CODE_PLUGIN_DIRS` |
+| Update | `claude plugin marketplace update cache-companions && claude plugin update cache-companions@cache-companions`, then `/reload-plugins` per open session | same, then a new session | automatic in a fresh container; a resumed container keeps its version; `/reload-plugins` isn't available |
+
+Gotchas: the desktop app's `/` menu doesn't list `/boop` (type it in full); a desktop local session on a big folder may ask for tens of GB for a worktree (pick a small folder; the plugin works anywhere); never load the plugin both installed and via `CLAUDE_CODE_PLUGIN_DIRS` on one machine (it runs twice).
+
 ## Decisions so far (keep unless George says otherwise)
 - Text faces by default; bear default; animals bear, cat, dog (+ `pup` fallback). Peckish has `°` eyes and blinks.
 - A boop is `$.model.fork` with "boop, reply with one word": nothing in the chat, no tools.
