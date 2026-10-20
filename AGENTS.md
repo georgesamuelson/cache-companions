@@ -2,7 +2,7 @@
 
 When George says "resume" or "read the handoff", follow `HANDOFF.md`. Otherwise read this first, then `STATUS.md` (where things stand), `ROADMAP.md` (to-dos and ideas), `docs/SPEC.md` (what it is and why) and `CHANGELOG.md` (what changed). Claude Code reads this file through `CLAUDE.md`; Codex and other agents read it directly.
 
-A Claude Code mod (a plugin with a hooks module): a small animal that watches the prompt-cache countdown, keeps the cache warm while you're away (auto-boop), and estimates what the cache saved. Owner: George Samuelson. Public, MIT.
+A Claude Code mod (a plugin with a hooks module): a small animal that watches the prompt-cache countdown, keeps the cache warm while you're away (auto-boop), and estimates what the cache saved. Owner: George Samuelson. Public, MIT. This repo is the home of Cache Companions; the old `cache-companions` branch in George's ea-jorts repo stays untouched as history and gets no new work.
 
 ## Layout
 - `hooks/core.ts`: every rule as plain functions (faces, countdown, window rules, auto-boop, savings, words). Put logic here so tests can call it.

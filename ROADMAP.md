@@ -11,6 +11,7 @@ Ideas from anyone go in GitHub Issues; this file is the working list. Tick items
 - [ ] `/boop stats` lists bests and milestones; tidier wording (one "at API prices", "1 turn")
 
 ## v0.3: band and buttons
+This is v0.3 step 4 in `HANDOFF.md`, including the Handoff and Clear & Continue buttons.
 - [ ] Compact button in the band when a conversation passes 400k
 - [ ] Handoff and Clear & Continue buttons
 - [ ] Plan usage (5-hour and weekly) beside the timer

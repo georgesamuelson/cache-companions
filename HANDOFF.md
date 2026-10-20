@@ -8,6 +8,7 @@
 3. Tell George in three lines: the version, what's waiting on him, and the first v0.3 step below. Then start on it unless he says otherwise.
 
 ## Where it stands
+- **Home:** this repo is the home of Cache Companions. The old `cache-companions` branch in George's ea-jorts repo stays untouched as history; no new work goes there.
 - **v0.2.7, public** at github.com/georgesamuelson/cache-companions (MIT). 38 tests pass.
 - **George's Mac:** installed for the user (CLI + desktop-app local sessions). Update with `claude plugin marketplace update cache-companions && claude plugin update cache-companions@cache-companions`, then `/reload-plugins` or a new session.
 - **Cloud:** the environment setup script clones this repo and loads it from the folder; fresh containers get the latest, resumed ones keep their version. No UI is drawn in cloud sessions.

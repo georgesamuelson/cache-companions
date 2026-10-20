@@ -100,6 +100,8 @@ Then start a new session. Cloud sessions get the latest version on their own.
 
 Ideas, bugs and new animals are welcome: open an issue on this repository. Pull requests are welcome too. Run the checks under **Files** first.
 
+This repository is the home of Cache Companions. The old `cache-companions` branch in George's ea-jorts repo stays untouched as history; no new work goes there.
+
 ## What the faces mean
 
 The text faces are the default. Switch with `/boop emoji`.

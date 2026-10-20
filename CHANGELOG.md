@@ -1,5 +1,8 @@
 # Changelog
 
+## Notes · 2026-10-20
+- Notes say this repo is the home of Cache Companions; the old `cache-companions` branch in ea-jorts is history only. Roadmap ties the band buttons to v0.3 step 4.
+
 ## 0.2.7 · 2026-10-18
 - `/boop settings` lists the settings as text where no pane can be drawn (cloud sessions).
 
