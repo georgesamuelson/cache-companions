@@ -1,5 +1,8 @@
 # Changelog
 
+## Notes · 2026-10-20
+- Notes say this repository is the home of Cache Companions; all work happens here. Roadmap ties the band buttons to v0.3 step 4.
+
 ## 0.2.7 · 2026-10-18
 - `/boop settings` lists the settings as text where no pane can be drawn (cloud sessions).
 
@@ -25,5 +28,5 @@
 - One-line welcome.
 ## 0.1.6
 - Resumed sessions start the countdown from the real last reply. First public release.
-## 0.1.0–0.1.5 (in George's ea-jorts repo before release)
+## 0.1.0–0.1.5 (before public release)
 - Faces, countdown, background boops, auto-boop, savings estimate, `/boop` commands, settings pane and band, hint-line placement, billing detection, big-conversation tip, shared settings and totals across sessions.

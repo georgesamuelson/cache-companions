@@ -1,8 +1,9 @@
 # Status
 
-**Last updated:** 2026-10-18 · **Version:** 0.2.7 · **Branch:** main
+**Last updated:** 2026-10-20 · **Version:** 0.2.7 · **Branch:** main
 
 ## Where it stands
+- This repository is the home of Cache Companions; all work happens here.
 - Public at github.com/georgesamuelson/cache-companions (MIT), installable with `/plugin install cache-companions --marketplace georgesamuelson/cache-companions`.
 - Working on George's Mac in the CLI (face and timer at the end of the hint line) and in desktop-app local sessions (band above the prompt).
 - Cloud sessions run it from the setup script (no UI is drawn there). A resumed cloud container keeps the version it already has; a fresh one fetches the latest.
