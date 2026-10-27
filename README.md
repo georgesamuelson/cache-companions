@@ -116,8 +116,8 @@ The text faces are the default. Switch with `/boop emoji`.
 
 If your terminal draws the dog's ears `૮ ა` as boxes, use `/boop pup` for `∪・ω・∪`. Some terminals split the polar bear 🐻‍❄️ into two emoji.
 
-- **CLI:** the face and the time left sit at the end of the hint line under the prompt. On a narrow terminal with a long hint line, Claude Code may cut them off. Your own status line stays where it is. `↻` after the time means auto-boop is on.
-- **App (desktop, mobile):** a band above the prompt with the face, a countdown bar and a **Boop** button. With auto-boop on, the button reads **↻ Auto-Boop On**, and pressing it turns auto-boop off. Hover over the band for the savings estimate. Tap the face for settings.
+- **CLI:** the face and the time left sit at the end of the hint line under the prompt. On a narrow terminal with a long hint line, Claude Code may cut them off. Your own status line stays where it is. `↻` after the time means auto-boop is on. A word after it says when boops are failing (`retrying`, `offline`, `likely cold`) or that remote mode is on (`remote`).
+- **App (desktop, mobile):** a band above the prompt with the face, a countdown bar and a **Boop** button. With auto-boop on, the button reads **↻ Auto-Boop On**, and pressing it turns auto-boop off. Hover over the band for the savings estimate and the time to the next boop. Tap the face for settings. When boops are failing, the band says so beside the time: **boop failed, retrying**, **offline, will retry** or **cache likely cold**; **remote** shows while remote mode is on.
 
 ## Commands and settings
 
@@ -132,6 +132,8 @@ If your terminal draws the dog's ears `૮ ა` as boxes, use `/boop pup` for `�
 | `/boop big keep` · `stop` | Whether auto-boop keeps going on conversations over `maxContextTokens`. `keep` is the default. |
 | `/boop away off` · `60` · `120` | How long auto-boop keeps the cache warm after your last turn, in minutes. `off` (no limit) is the default. |
 | `/boop night` | Turns auto-boop on and keeps the cache warm through the night (8 hours), then lets it go. |
+| `/boop early <percent>` · `off` | Sends the first auto-boop at that share of the window (10 to 95), e.g. `/boop early 80` boops 12 minutes before an hour cache expires, so a failed boop has time to retry. `off` (about 30 seconds before expiry) is the default. |
+| `/boop remote` · `remote off` | Remote mode for shaky connections: boops early (70% unless you set `/boop early`), retries, and staggers panes by a few seconds. Turns auto-boop on. Off by default. |
 | `/boop window auto` · `5` · `60` | Sets the cache window in minutes. `auto` (the default) detects it. |
 | `/boop stats` | Shows session and all-time savings. |
 | `/boop price <model> <input> <write5m> <write1h> <read> <output>` | Overrides one model's prices, in dollars per million tokens, e.g. `/boop price opus-5-5 4 5 8 0.2 20`. |
@@ -150,6 +152,10 @@ The cache-read refreshes the cache's lifetime, so the countdown starts again. A 
 **Auto-boop** boops when about 30 seconds of the window are left. It stops:
 
 - only if you set a limit. By default it keeps going for as long as you're away. `/boop away 60` (or `120`) stops it that many minutes after your last turn, and `/boop night` keeps it warm through the night (8 hours) and then lets go. When it stops it shows a toast and the animal goes cold; your next prompt starts it again.
+
+**Failed boops.** A boop counts only when the reply shows the cache was read. If it doesn't get through (no connection, Claude busy or erroring), the countdown carries on from the last real feed and auto-boop tries again: after 30 seconds, then 1 minute, then every 2 minutes, or sooner when the window is short, until the window ends. A boop that gets no answer within 20 seconds is treated as failed for timing, with at most two out at once. If the window ends with no boop through, the band says **cache likely cold** and one toast tells you, so you know before your next message pays to rebuild. If Claude refuses a boop outright (a sign-in or request error), auto-boop waits for your next message. `/boop stats` counts failed boops and the windows lost after one.
+
+**Shaky connections.** With the default timing, a failed boop has only the last 30 seconds to retry. On a weak connection, use `/boop early 80` or `/boop remote`: the first boop comes with a fifth (or 30%) of the window left. That's about 25% more boops per hour, a few cents at API prices, against a full rebuild of a long conversation. Each pane keeps its own countdown and retries; in remote mode each pane's boops are moved by up to 10 seconds so panes on one connection don't all try at once.
 
 **Missed boops.** If an auto-boop finds the cache already gone (it paid to rebuild), auto-boop pauses until your next message instead of paying again.
 
@@ -186,7 +192,7 @@ Everything is labelled an estimate. It comes from the token counts Claude Code r
 
 ## Privacy
 
-Cache Companions reads the token counts Claude Code already reports. It sends nothing anywhere. Its settings and totals stay in Claude Code's local plugin store on your machine. A boop is a normal request to the model you're already using, over Claude Code's own connection.
+Cache Companions reads the token counts Claude Code already reports. It sends nothing anywhere. Its settings and totals stay in Claude Code's local plugin store on your machine. A boop is a normal request to the model you're already using, over Claude Code's own connection. Retries on a shaky connection are more of the same requests; there is no separate connection check.
 
 ## Sound
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased (v0.3): boop early on shaky connections
+- Fix: a boop that failed (a dropped connection, the API erroring) was taken as a boop that landed. It reset the countdown, said the cache had to be rebuilt and paused auto-boop. Now a boop counts only when a cache read comes back.
+- Failed boops retry with backoff (30 s, 60 s, 2 min, or sooner on a short window) until the window ends. A boop with no answer in 20 s stops holding up retries; at most two are out at once.
+- The countdown restarts from when a boop was sent, not when its reply arrived.
+- `/boop early <percent>` and `/boop early off` (off by default): the first auto-boop at a share of the window, so retries have room.
+- `/boop remote` and `/boop remote off`: early at 70%, retries, and a few seconds of stagger per pane.
+- Band and CLI say `retrying`, `offline`, `likely cold` or `remote`; one toast when a pane's cache likely went cold; `/boop stats` counts failed boops and windows lost. The band's hover shows the time to the next boop.
+- Design note: `docs/boop-early-shaky-connections.md`.
+
 ## Notes · 2026-10-20
 - Notes say this repository is the home of Cache Companions; all work happens here. Roadmap ties the band buttons to v0.3 step 4.
 

@@ -2,6 +2,17 @@
 
 Ideas from anyone go in GitHub Issues; this file is the working list. Tick items off and move them to `CHANGELOG.md` when they ship.
 
+## v0.3: boop early on shaky connections (built, not released)
+See `docs/boop-early-shaky-connections.md`.
+- [x] Failed boops no longer count as fed; the countdown restarts from when a boop was sent
+- [x] Retry with backoff until the window ends; done only when a cache read comes back
+- [x] Failure kinds (offline, busy, refused) in place of a separate connection check
+- [x] `/boop early <percent>` and `/boop early off` (off by default)
+- [x] Band and CLI words, one "likely cold" toast, failed boops in `/boop stats`
+- [x] `/boop remote` and `/boop remote off`, with a per-pane stagger
+- [ ] Live test on a weak connection: the five checks in the design note (George)
+- [ ] Later, maybe: a priority order across panes (the coordinator first); suggest `/boop remote` after several failures in a row (the cold toast does now)
+
 ## v0.3: the game (not built yet)
 - [ ] `/boop show off|percent|saved|tokens|streak`: one figure after the timer (off by default)
 - [ ] Money saved as the headline score (tokens for anyone who prefers)
