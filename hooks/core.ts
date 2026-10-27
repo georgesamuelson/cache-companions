@@ -343,13 +343,23 @@ export function boopCostUsd(u: Usage, price: Price | null, windowMinutes: 5 | 60
 /**
  * What the boops before a real turn prevented: only when that turn came after
  * the window would have closed without them, and then the rebuild it would
- * have paid, the tokens it read from cache written again instead.
+ * have paid, the tokens it read from cache written again instead. A turn's
+ * usage adds up all its requests, and only the first would have rebuilt, so
+ * the tokens are capped at the conversation's size before the turn.
  */
-export function preventedUsd(u: Usage, price: Price | null, windowMinutes: 5 | 60, gapSinceRealMs: number | null, boopsBefore: number): number {
+export function preventedUsd(
+  u: Usage,
+  price: Price | null,
+  windowMinutes: 5 | 60,
+  gapSinceRealMs: number | null,
+  boopsBefore: number,
+  prefixTokens?: number,
+): number {
   if (!price || boopsBefore === 0 || gapSinceRealMs === null) return 0
   if (gapSinceRealMs <= windowMinutes * 60_000) return 0
   const write = windowMinutes === 60 ? price.write1h : price.write5m
-  return perM(u.cache_read_input_tokens, write - price.read)
+  const rebuilt = prefixTokens === undefined ? u.cache_read_input_tokens : Math.min(u.cache_read_input_tokens, prefixTokens)
+  return perM(rebuilt, write - price.read)
 }
 
 export function emptyTotals(): Totals {

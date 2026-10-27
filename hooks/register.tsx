@@ -85,6 +85,8 @@ let hungAttempt = 0
 /** This pane's stagger in remote mode, drawn once per window. */
 let jitter = 0
 let jitterFor: number | null = null
+/** The desktop app's Terminal panel draws emoji a cell narrower than Claude Code expects. */
+let inPanel = false
 let bigStopNotified = false
 let settingsReadAt = 0
 let resumedAt: number | null = null
@@ -229,7 +231,8 @@ async function refresh($: $) {
 
   const view: View = {
     face,
-    status: statusText(face, c, settings.auto, note),
+    // In the Terminal panel an emoji face shifts the rest of the line; the text face draws true.
+    status: statusText(inPanel && settings.style === 'emoji' ? faceFor(settings.animal, 'text', c.mood, now) : face, c, settings.auto, note),
     mood: c.mood,
     fraction: c.fraction === null ? null : Math.round(c.fraction * 100) / 100,
     clock: c.leftMs === null ? null : clockText(c.leftMs),
@@ -432,6 +435,7 @@ export const register: Register = on => {
     const saved = (await $.state.get(RUNTIME)).value
     rt = saved ? { ...freshRuntime(), ...saved, session: sumTotals(saved.session, emptyTotals()) } : freshRuntime()
     sessionReady = true
+    inPanel = (await $.env.get('TERM_PROGRAM')) === 'claude-desktop'
     await readWindowRule($)
     if (resumedAt !== null) await applyResume($)
     // v0.1.0 pinned a status entry; the CLI now shows the companion in the footer.
@@ -505,9 +509,18 @@ export const register: Register = on => {
       rt = { ...rt, session: addLostWindow(rt.session) }
       await addToAllTime($, addLostWindow(emptyTotals()))
     }
-    const price = priceFor(u.model, promptTokens(u), settings.prices)
+    // A turn's usage adds up all its requests; the conversation's size is the last request's input.
+    const size = (await $.session.usage()).context.tokens ?? promptTokens(u) + u.output_tokens
+    const price = priceFor(u.model, size, settings.prices)
     const saved = turnSavedUsd(u, price)
-    const prevented = preventedUsd(u, price, win.minutes, rt.lastRealTurnAt === null ? null : startedAt - rt.lastRealTurnAt, rt.boopsSinceReal)
+    const prevented = preventedUsd(
+      u,
+      price,
+      win.minutes,
+      rt.lastRealTurnAt === null ? null : startedAt - rt.lastRealTurnAt,
+      rt.boopsSinceReal,
+      rt.contextTokens > 0 ? rt.contextTokens : undefined,
+    )
 
     rt = {
       ...rt,
@@ -515,7 +528,7 @@ export const register: Register = on => {
       lastFedAt: now,
       lastRealTurnAt: now,
       fedUntil: now + FED_MS,
-      contextTokens: promptTokens(u) + u.output_tokens,
+      contextTokens: size,
       model: u.model,
       lastWasCached: isCached(u),
       boopsSinceReal: 0,

@@ -208,6 +208,8 @@ describe('savings estimate', () => {
     expect(preventedUsd(usage(200_000, 0), price, 5, 8 * MIN, 1)).toBe(0.96)
     expect(preventedUsd(usage(200_000, 0), price, 5, 3 * MIN, 1)).toBe(0)
     expect(preventedUsd(usage(200_000, 0), price, 5, 8 * MIN, 0)).toBe(0)
+    // A turn of several requests read the conversation several times; only the first would have rebuilt it.
+    expect(preventedUsd(usage(600_000, 0), price, 5, 8 * MIN, 1, 200_000)).toBe(0.96)
   })
 
   test('subscription mode never shows a bare dollar figure', () => {

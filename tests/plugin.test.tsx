@@ -17,7 +17,7 @@ const DROPPED: ForkReply = { isAnswered: false, reason: 'api-error', status: nul
 
 function world(
   on: On,
-  opts: { kind?: string; settings?: object; env?: Record<string, string>; percentUsed?: number; forkRebuilds?: boolean; fork?: (n: number) => ForkReply | undefined } = {},
+  opts: { kind?: string; settings?: object; env?: Record<string, string>; percentUsed?: number; forkRebuilds?: boolean; fork?: (n: number) => ForkReply | undefined; contextTokens?: number } = {},
 ) {
   const model = { current: 'claude-opus-5-5' }
   const clock = mock.clock(on, { now: 1_000_000 })
@@ -33,7 +33,7 @@ function world(
   // Past its plan (usage credits) by default, so the window is 5 minutes.
   const rateLimits = (opts.kind ?? 'claude.ai') === 'claude.ai' ? [{ kind: 'five_hour', percentUsed: opts.percentUsed ?? 100 }] : []
   on('settings.read', () => ({ value: {} }))
-  on('session.usage', () => ({ value: { startedAt: 0, context: {}, rateLimits } as never }))
+  on('session.usage', () => ({ value: { startedAt: 0, context: { tokens: opts.contextTokens, window: 1_000_000 }, rateLimits } as never }))
   on('command.register', (_$, e) => ({ value: { command: e.name } }))
   on('ui.status', (_$, e) => {
     shown.status.push(e.text)
@@ -356,4 +356,26 @@ test('/boop remote shows remote, boops at about 70%, and /boop remote off ends i
   expect(shown.forks).toBe(1)
   await $.command.run({ command: 'boop', args: 'remote off', ...RUN })
   expect(await status($)).not.toMatch(/remote/)
+})
+
+test('the size notice uses the conversation size, not a turn that added up many requests', async ($, on) => {
+  // A turn with tool calls: its requests summed come to 830k, but the conversation is 98k.
+  const { shown } = world(on, { contextTokens: 98_000 })
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await aTurn($, 800_000, 30_000)
+  expect(shown.toasts.some(t => /\/compact/.test(t))).toBe(false)
+})
+
+test('in the desktop app\'s Terminal panel the CLI entry uses the text face, which it draws at the right width', async ($, on) => {
+  world(on, { settings: { animal: 'cat', style: 'emoji', auto: false }, env: { TERM_PROGRAM: 'claude-desktop' } })
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await aTurn($, 90_000, 0)
+  expect(await status($)).toBe('(=^‿^=) 5:00')
+})
+
+test('other terminals keep the emoji face', async ($, on) => {
+  world(on, { settings: { animal: 'cat', style: 'emoji', auto: false } })
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await aTurn($, 90_000, 0)
+  expect(await status($)).toBe('😻 5:00')
 })

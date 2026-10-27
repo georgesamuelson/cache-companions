@@ -116,7 +116,7 @@ The text faces are the default. Switch with `/boop emoji`.
 
 If your terminal draws the dog's ears `૮ ა` as boxes, use `/boop pup` for `∪・ω・∪`. Some terminals split the polar bear 🐻‍❄️ into two emoji.
 
-- **CLI:** the face and the time left sit at the end of the hint line under the prompt. On a narrow terminal with a long hint line, Claude Code may cut them off. Your own status line stays where it is. `↻` after the time means auto-boop is on. A word after it says when boops are failing (`retrying`, `offline`, `likely cold`) or that remote mode is on (`remote`).
+- **CLI:** the face and the time left sit at the end of the hint line under the prompt. On a narrow terminal with a long hint line, Claude Code may cut them off. Your own status line stays where it is. `↻` after the time means auto-boop is on. In the desktop app's Terminal panel, which draws emoji a cell narrower than Claude Code expects, this line uses the text face even with emoji faces on. A word after it says when boops are failing (`retrying`, `offline`, `likely cold`) or that remote mode is on (`remote`).
 - **App (desktop, mobile):** a band above the prompt with the face, a countdown bar and a **Boop** button. With auto-boop on, the button reads **↻ Auto-Boop On**, and pressing it turns auto-boop off. Hover over the band for the savings estimate and the time to the next boop. Tap the face for settings. When boops are failing, the band says so beside the time: **boop failed, retrying**, **offline, will retry** or **cache likely cold**; **remote** shows while remote mode is on.
 
 ## Commands and settings

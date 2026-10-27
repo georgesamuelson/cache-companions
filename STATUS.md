@@ -1,6 +1,6 @@
 # Status
 
-**Last updated:** 2026-10-20 · **Version:** 0.2.7 · **Branch:** main
+**Last updated:** 2026-10-27 · **Version:** 0.2.8 (ready on branch `claude/boop-early-shaky-connections-65352e`, not pushed) · **Live:** 0.2.7 on main
 
 ## Where it stands
 - This repository is the home of Cache Companions; all work happens here.
@@ -14,7 +14,9 @@
 - George: turn on Settings → Sponsorships in the GitHub repo if the Sponsor button doesn't show.
 
 ## Next
-v0.3 (see ROADMAP.md): the "game" (`/boop show`, personal bests, milestones, warm streak); Compact / Handoff buttons; plan usage beside the timer; a 5-minute warning; a daily update notice. Later: research a port to the Pi coding agent.
+Release 0.2.8 (boop early on shaky connections, failed-boop fix) on George's word. Then v0.3: update notice first, then the 5-minute heads-up and plan usage, then band buttons, then `/boop show` and scores.
+
+Earlier plan, still the list: v0.3 (see ROADMAP.md): the "game" (`/boop show`, personal bests, milestones, warm streak); Compact / Handoff buttons; plan usage beside the timer; a 5-minute warning; a daily update notice. Later: research a port to the Pi coding agent.
 
 ## Known limits
 - Claude Code draws no plugin UI in cloud sessions.
