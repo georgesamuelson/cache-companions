@@ -132,7 +132,7 @@ export function statusText(face: string, c: Countdown, auto: boolean, note: Note
 
 /** Failing boops say so first; a cold cache after them says "likely cold"; otherwise remote mode shows. */
 export function noteFor(a: { failedBoops: number; lastFailure: BoopFailure | null; mood: Mood; remote: boolean }): Note | null {
-  if (a.failedBoops > 0) {
+  if (a.failedBoops > 0 && a.mood !== 'idle') {
     if (a.mood === 'cold') return 'likely-cold'
     return a.lastFailure === 'offline' ? 'offline' : 'retrying'
   }
@@ -279,7 +279,8 @@ export function autoBoop(c: AutoBoopCheck): AutoBoopDecision {
 
 /** A prompt the person typed: the boop streak and its warnings start over. */
 export function onRealPrompt(rt: Runtime): Runtime {
-  return { ...rt, boopsInRow: 0, capNotified: false, ...boopsLanded }
+  // Failed-boop state clears when that turn completes, after it shows whether the window was lost.
+  return { ...rt, boopsInRow: 0, capNotified: false }
 }
 
 /** The cache was fed (a turn or a boop that landed): failures start over. */

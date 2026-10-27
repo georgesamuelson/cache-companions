@@ -305,6 +305,12 @@ test('when the connection stays down past the window: likely cold, one toast, no
   expect(shown.toasts.filter(t => /likely went cold/.test(t)).length).toBe(1)
   await clock.advance(10 * 60_000)
   expect(shown.forks).toBe(tries)
+  // You come back: that turn rebuilds, so the window counts as lost, and the warning clears.
+  await $.prompt.submit({ text: 'hello', origin: { kind: 'composer' }, wait: false })
+  await aTurn($, 0, 90_000)
+  const stats = await $.command.run({ command: 'boop', args: 'stats', ...RUN })
+  expect(stats.text).toMatch(/3 boops failed, 1 window lost/)
+  expect(await status($)).toMatch(/ 5:00↻$/)
 })
 
 test('a boop Claude refuses (sign-in) stops retrying until the next message', async ($, on) => {

@@ -300,6 +300,8 @@ describe('shaky connections', () => {
     expect(n({ failedBoops: 1, lastFailure: 'busy' })).toBe('retrying')
     expect(n({ failedBoops: 2, lastFailure: 'offline', remote: true })).toBe('offline')
     expect(n({ failedBoops: 2, lastFailure: 'offline', mood: 'cold' })).toBe('likely-cold')
+    // While your turn runs (and rebuilds), no failure words.
+    expect(n({ failedBoops: 2, lastFailure: 'offline', mood: 'idle' })).toBe(null)
     const c = countdown({ lastFedAt: 0, fedUntil: 0 }, 5 * MIN, 78_000, false)
     expect(statusText('ʕ•ᴥ•ʔ', c, true, 'offline')).toBe('ʕ•ᴥ•ʔ 3:42↻ offline')
     const cold = countdown({ lastFedAt: 0, fedUntil: 0 }, 5 * MIN, 400_000, false)
