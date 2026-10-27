@@ -5,6 +5,20 @@ import type { BillingMode, Runtime, Settings, Totals, Usage, View } from '../typ
 import {
   BOOP_PROMPT,
   FED_MS,
+  MAX_BOOPS_OUT,
+  NOTE_LONG,
+  STAGGER_MS,
+  AUTO_BOOP_LATEST_MS,
+  addFailedBoop,
+  addLostWindow,
+  boopOutcome,
+  boopStartMs,
+  boopsLanded,
+  coldNotice,
+  isBoopHung,
+  isEarlyPercent,
+  noteFor,
+  retryAt,
   HELP,
   ABOUT,
   settingsText,
@@ -58,7 +72,21 @@ let creditsNotified = false
 /** An auto-boop found the cache gone: wait for a real turn rather than pay to rebuild again. */
 let boopMissed = false
 let isBusy = false
-let isBooping = false
+/**
+ * Boops in flight, kept in memory only: a fork can't be cancelled, so after a
+ * reload the old one may still be out, and nothing saved should count it.
+ */
+let boopsOut = 0
+/** The newest boop: its id and when it was sent. Only its result decides what comes next. */
+let attempt = 0
+let boopSentAt: number | null = null
+/** The newest boop was given up as hung, and counted as a failure. */
+let hungAttempt = 0
+/** This pane's stagger in remote mode, drawn once per window. */
+let jitter = 0
+let jitterFor: number | null = null
+/** The desktop app's Terminal panel draws emoji a cell narrower than Claude Code expects. */
+let inPanel = false
 let bigStopNotified = false
 let settingsReadAt = 0
 let resumedAt: number | null = null
@@ -69,6 +97,19 @@ let lastView = ''
 let seenShort = false
 const windowNow = () =>
   settings.ttl === 'auto' && seenShort ? { minutes: 5 as const, source: 'learned' as const } : resolveWindow(settings.ttl, rule)
+
+/** Busy booping, unless the newest boop has hung and there's room for one more. */
+const isBoopingAt = (now: number) => boopsOut > 0 && !(isBoopHung(boopSentAt, now) && boopsOut < MAX_BOOPS_OUT)
+const windowMs = () => windowNow().minutes * 60_000
+const expiry = () => (rt.lastFedAt === null ? 0 : rt.lastFedAt + windowMs())
+
+/** After a failed boop: the next try, a little later in remote mode, or the window's end once there's no room. */
+function scheduleRetry(now: number, failures: number): number {
+  const end = expiry()
+  const next = retryAt(now, failures, Math.max(0, end - now))
+  if (next === null) return end
+  return settings.remote ? Math.min(next + Math.random() * STAGGER_MS, end - AUTO_BOOP_LATEST_MS) : next
+}
 
 async function saveRuntime($: $) {
   await $.state.set(RUNTIME, rt)
@@ -104,7 +145,7 @@ async function noteModel($: $, model: string, now: number) {
   const was = rt.model === null ? null : modelKey(rt.model)
   const is = modelKey(model)
   if (was === null || is === null || was === is) return
-  rt = { ...rt, model, lastFedAt: rt.lastFedAt === null ? null : now - 2 * 60 * 60_000, fedUntil: 0 }
+  rt = { ...rt, model, lastFedAt: rt.lastFedAt === null ? null : now - 2 * 60 * 60_000, fedUntil: 0, ...boopsLanded }
   await saveRuntime($)
   $.ui.toast(`Switched to ${is}: its cache starts fresh with your next message.`)
 }
@@ -166,11 +207,32 @@ async function refresh($: $) {
   const win = windowNow()
   const c = countdown(rt, win.minutes * 60_000, now, isBusy)
   const face = faceFor(settings.animal, settings.style, c.mood, now)
+  if (rt.lastFedAt !== jitterFor) {
+    jitterFor = rt.lastFedAt
+    jitter = Math.random() * STAGGER_MS
+  }
 
+  // A boop with no answer yet: count it as failed so the next try waits its turn.
+  if (boopsOut > 0 && isBoopHung(boopSentAt, now) && hungAttempt !== attempt) {
+    hungAttempt = attempt
+    const failedBoops = rt.failedBoops + 1
+    rt = { ...rt, failedBoops, lastFailure: 'offline', retryAt: scheduleRetry(now, failedBoops) }
+    await saveRuntime($)
+  }
+
+  const note = noteFor({ failedBoops: rt.failedBoops, lastFailure: rt.lastFailure, mood: c.mood, remote: settings.remote })
+  const start = boopStartMs(win.minutes * 60_000, settings.earlyPercent, settings.remote, jitter)
+  const nextBoopMs =
+    !settings.auto || boopMissed || c.leftMs === null || c.mood === 'cold' || (rt.retryAt !== null && rt.retryAt >= expiry())
+      ? null
+      : rt.retryAt !== null && rt.retryAt > now
+        ? rt.retryAt - now
+        : Math.max(0, c.leftMs - start)
 
   const view: View = {
     face,
-    status: statusText(face, c, settings.auto),
+    // In the Terminal panel an emoji face shifts the rest of the line; the text face draws true.
+    status: statusText(inPanel && settings.style === 'emoji' ? faceFor(settings.animal, 'text', c.mood, now) : face, c, settings.auto, note),
     mood: c.mood,
     fraction: c.fraction === null ? null : Math.round(c.fraction * 100) / 100,
     clock: c.leftMs === null ? null : clockText(c.leftMs),
@@ -179,6 +241,8 @@ async function refresh($: $) {
     settings,
     windowMinutes: win.minutes,
     windowSource: win.source,
+    note,
+    nextBoop: nextBoopMs === null ? null : clockText(nextBoopMs),
   }
   const key = JSON.stringify(view)
   if (key !== lastView) {
@@ -191,8 +255,25 @@ async function refresh($: $) {
     if (settings.sound) $.audio.play({ asset: SOUND }, { gain: 0.5 }).catch(() => {})
   }
 
+  if (c.mood === 'cold' && rt.failedBoops > 0 && !rt.coldNotified && settings.auto) {
+    rt = { ...rt, coldNotified: true }
+    await saveRuntime($)
+    $.ui.toast(coldNotice(rt.lastFailure, settings.remote), { timeoutMs: 10000 })
+  }
+
   const awayMs = rt.lastRealTurnAt === null ? null : now - rt.lastRealTurnAt
-  const decision = autoBoop({ settings, rt, awayMs, leftMs: c.leftMs, isBusy, isBooping })
+  const decision = autoBoop({
+    settings,
+    rt,
+    awayMs,
+    leftMs: c.leftMs,
+    isBusy,
+    isBooping: isBoopingAt(now),
+    windowMs: win.minutes * 60_000,
+    now,
+    retryAt: rt.retryAt,
+    jitterMs: jitter,
+  })
   if (decision === 'boop' && !boopMissed) {
     void boop($, 'auto')
   } else if (decision === 'cap' && !rt.capNotified) {
@@ -204,37 +285,67 @@ async function refresh($: $) {
   }
 }
 
-/** Re-sends the cached conversation with a one-word question and throws the reply away. */
+/**
+ * Re-sends the cached conversation with a one-word question and throws the
+ * reply away. It counts as done only when a cache read comes back; a boop
+ * that fails leaves the countdown alone and auto-boop tries again.
+ */
 async function boop($: $, origin: 'auto' | 'manual'): Promise<string> {
   if (isBusy) return 'Claude is working, so the cache is already being fed.'
-  if (isBooping) return 'Already booping.'
-  isBooping = true
+  // The cache's lifetime restarts when the request is read, near when it's sent.
+  const sentAt = await $.clock.now()
+  if (isBoopingAt(sentAt)) return 'Already booping.'
+  const id = ++attempt
+  boopsOut += 1
+  boopSentAt = sentAt
   try {
     const r = await $.model.fork({ prompt: BOOP_PROMPT })
-    if (!r.isAnswered && r.reason === 'nothing-to-fork') return 'Nothing to keep warm yet. Send a prompt first.'
-    const u: Usage | undefined = 'usage' in r ? r.usage : undefined
+    if (!r.isAnswered && r.reason === 'nothing-to-fork') {
+      rt = { ...rt, ...boopsLanded }
+      return 'Nothing to keep warm yet. Send a prompt first.'
+    }
+    const u: Usage = r.usage
     const win = windowNow()
     const now = await $.clock.now()
-    if (u) {
-      const cost = boopCostUsd(u, priceFor(rt.model, promptTokens(u), settings.prices), win.minutes)
-      rt = { ...rt, session: addBoop(rt.session, cost), boopCostSinceReal: rt.boopCostSinceReal + cost }
-      await addToAllTime($, addBoop(emptyTotals(), cost))
-    }
-    if (!r.isAnswered && u === undefined) {
+    const cost = boopCostUsd(u, priceFor(rt.model, promptTokens(u), settings.prices), win.minutes)
+    const outcome = boopOutcome(r)
+
+    if (outcome.kind === 'failed') {
+      rt = { ...rt, session: addFailedBoop(rt.session, cost), boopCostSinceReal: rt.boopCostSinceReal + cost }
+      await addToAllTime($, addFailedBoop(emptyTotals(), cost))
+      // A newer boop, or a feed since this one went out, decides what comes next.
+      const isStale = id !== attempt || (rt.lastFedAt !== null && rt.lastFedAt > sentAt)
+      if (!isStale && outcome.why === 'stopped') {
+        boopMissed = true
+        rt = { ...rt, ...boopsLanded }
+        $.ui.toast('Claude refused the boop (a sign-in or request error), so auto-boop waits for your next message.', { timeoutMs: 10000 })
+      } else if (!isStale && hungAttempt !== id) {
+        const failedBoops = rt.failedBoops + 1
+        rt = { ...rt, failedBoops, lastFailure: outcome.why, retryAt: scheduleRetry(now, failedBoops) }
+      }
       await saveRuntime($)
-      return 'The boop did not reach Claude. Try again in a moment.'
+      await refresh($)
+      if (outcome.why === 'stopped') return 'Claude refused the boop (a sign-in or request error).'
+      const why = outcome.why === 'offline' ? 'no connection' : 'Claude is busy or erroring'
+      return settings.auto ? `The boop didn't get through (${why}). Auto-boop keeps trying while the window lasts.` : `The boop didn't get through (${why}). Try again in a moment.`
     }
+
     rt = {
       ...rt,
-      lastFedAt: now,
+      session: addBoop(rt.session, cost),
+      boopCostSinceReal: rt.boopCostSinceReal + cost,
+      // A slower, older boop landing late doesn't wind the clock back.
+      lastFedAt: Math.max(rt.lastFedAt ?? sentAt, sentAt),
       fedUntil: now + FED_MS,
       boopsInRow: origin === 'auto' ? rt.boopsInRow + 1 : rt.boopsInRow,
       boopsSinceReal: rt.boopsSinceReal + 1,
       hungrySpellNotified: false,
+      ...boopsLanded,
     }
+    await addToAllTime($, addBoop(emptyTotals(), cost))
     await saveRuntime($)
     await refresh($)
-    if (u && !isCached(u)) {
+    if (outcome.kind === 'rebuilt') {
       if (origin === 'auto') {
         boopMissed = true
         $.ui.toast('That boop found the cache already gone, so it paid to rebuild. Auto-boop waits for your next message now.', { timeoutMs: 10000 })
@@ -243,7 +354,8 @@ async function boop($: $, origin: 'auto' | 'manual'): Promise<string> {
     }
     return `Booped. Cache warm for ${win.minutes}:00.`
   } finally {
-    isBooping = false
+    boopsOut -= 1
+    if (boopsOut === 0) boopSentAt = null
   }
 }
 
@@ -258,6 +370,12 @@ async function setAuto($: $, auto: boolean) {
       : 'Auto-boop off.',
   )
   await saveSettings($)
+}
+
+/** Remote mode: boop early, retry, stagger. It turns auto-boop on, since that's what it tunes. */
+async function setRemote($: $, remote: boolean) {
+  await patch($, { remote })
+  if (remote && !settings.auto) await setAuto($, true)
 }
 
 async function patch($: $, p: Partial<Settings>) {
@@ -302,6 +420,8 @@ function settingsRows(els: Els, $: $, s: Settings) {
     row('Auto-boop', [true, false].map(v => ({ key: `auto-${v}`, label: v ? 'On' : 'Off', isOn: s.auto === v, press: () => void setAuto($, v) }))),
     row('Keep warm', ([0, 60, 120, NIGHT_MINUTES] as const).map(m => ({ key: `away-${m}`, label: m === 0 ? 'Always' : m === NIGHT_MINUTES ? 'Night' : `${m / 60}h`, isOn: s.maxAwayMinutes === m, press: () => void patch($, { maxAwayMinutes: m }) }))),
     row('Sound', [true, false].map(v => ({ key: `sound-${v}`, label: v ? 'On' : 'Off', isOn: s.sound === v, press: () => void patch($, { sound: v }) }))),
+    row('Early', ([null, 70, 80] as const).map(p => ({ key: `early-${p ?? 'off'}`, label: p === null ? 'Off' : `${p}%`, isOn: s.earlyPercent === p, press: () => void patch($, { earlyPercent: p }) }))),
+    row('Remote', [true, false].map(v => ({ key: `remote-${v}`, label: v ? 'On' : 'Off', isOn: s.remote === v, press: () => void setRemote($, v) }))),
     row('Window', (['auto', 5, 60] as const).map(t => ({ key: `ttl-${t}`, label: t === 'auto' ? 'Auto' : `${t}m`, isOn: s.ttl === t, press: () => void patch($, { ttl: t }) }))),
   ]
 }
@@ -311,8 +431,11 @@ export const register: Register = on => {
     await loadSettings($)
     allTime = sumTotals((await $.store.get('totals')) as Partial<Totals> | undefined, emptyTotals())
     mode = ((await $.store.get('billing')) as BillingMode | undefined) ?? 'api'
-    rt = (await $.state.get(RUNTIME)).value ?? freshRuntime()
+    // A runtime saved by an older version lacks the newer fields.
+    const saved = (await $.state.get(RUNTIME)).value
+    rt = saved ? { ...freshRuntime(), ...saved, session: sumTotals(saved.session, emptyTotals()) } : freshRuntime()
     sessionReady = true
+    inPanel = (await $.env.get('TERM_PROGRAM')) === 'claude-desktop'
     await readWindowRule($)
     if (resumedAt !== null) await applyResume($)
     // v0.1.0 pinned a status entry; the CLI now shows the companion in the footer.
@@ -381,9 +504,23 @@ export const register: Register = on => {
     }
 
     const win = windowNow()
-    const price = priceFor(u.model, promptTokens(u), settings.prices)
+    // The boops before this turn failed and it rebuilt: that window was lost.
+    if (rt.failedBoops > 0 && !isCached(u)) {
+      rt = { ...rt, session: addLostWindow(rt.session) }
+      await addToAllTime($, addLostWindow(emptyTotals()))
+    }
+    // A turn's usage adds up all its requests; the conversation's size is the last request's input.
+    const size = (await $.session.usage()).context.tokens ?? promptTokens(u) + u.output_tokens
+    const price = priceFor(u.model, size, settings.prices)
     const saved = turnSavedUsd(u, price)
-    const prevented = preventedUsd(u, price, win.minutes, rt.lastRealTurnAt === null ? null : startedAt - rt.lastRealTurnAt, rt.boopsSinceReal)
+    const prevented = preventedUsd(
+      u,
+      price,
+      win.minutes,
+      rt.lastRealTurnAt === null ? null : startedAt - rt.lastRealTurnAt,
+      rt.boopsSinceReal,
+      rt.contextTokens > 0 ? rt.contextTokens : undefined,
+    )
 
     rt = {
       ...rt,
@@ -391,12 +528,13 @@ export const register: Register = on => {
       lastFedAt: now,
       lastRealTurnAt: now,
       fedUntil: now + FED_MS,
-      contextTokens: promptTokens(u) + u.output_tokens,
+      contextTokens: size,
       model: u.model,
       lastWasCached: isCached(u),
       boopsSinceReal: 0,
       boopCostSinceReal: 0,
       hungrySpellNotified: false,
+      ...boopsLanded,
     }
     await addToAllTime($, addTurn(emptyTotals(), u, saved, prevented))
 
@@ -469,6 +607,28 @@ export const register: Register = on => {
         if (!Number.isFinite(minutes) || minutes < 0 || arg === '') return { text: 'Use /boop away <minutes>, e.g. /boop away 120, or /boop away off for no limit.' }
         await patch($, { maxAwayMinutes: Math.floor(minutes) })
         return { text: `Auto-boop keeps the cache warm ${awayText(Math.floor(minutes))}.` }
+      }
+      case 'early': {
+        if (arg === 'off') {
+          await patch($, { earlyPercent: null })
+          return { text: `Boop early off: the first auto-boop comes about 30 s before the cache expires${settings.remote ? ' (remote mode still boops at 70%)' : ''}.` }
+        }
+        const percent = Number(arg.replace('%', ''))
+        if (arg === '' || !isEarlyPercent(percent)) return { text: 'Use /boop early <percent> (10 to 95), e.g. /boop early 80, or /boop early off.' }
+        await patch($, { earlyPercent: Math.round(percent) })
+        const win = windowNow()
+        const left = clockText(boopStartMs(win.minutes * 60_000, Math.round(percent), false, 0))
+        return { text: `Boop early: the first auto-boop comes at ${Math.round(percent)}% of the window (${left} before a ${win.minutes}-minute cache expires), so a failed boop has time to retry.` }
+      }
+      case 'remote': {
+        if (arg !== '' && arg !== 'on' && arg !== 'off') return { text: 'Use /boop remote (or /boop remote on) and /boop remote off.' }
+        await setRemote($, arg !== 'off')
+        return {
+          text:
+            arg === 'off'
+              ? 'Remote mode off.'
+              : `Remote mode on: auto-boop starts at ${settings.earlyPercent ?? 70}% of the window, retries until it lands, and staggers panes. /boop remote off to stop.`,
+        }
       }
       case 'big': {
         if (arg !== 'keep' && arg !== 'stop') return { text: 'Use /boop big keep (auto-boop big conversations too) or /boop big stop.' }
@@ -551,6 +711,11 @@ export const register: Register = on => {
             <Text dimColor tabular>
               {v.mood === 'cold' ? 'cold' : (v.clock ?? '')}
             </Text>
+            {v.note ? (
+              <Text key="note" color={v.note === 'likely-cold' ? 'error' : v.note === 'remote' ? 'inactive' : 'warning'} wrap="truncate">
+                {NOTE_LONG[v.note]}
+              </Text>
+            ) : null}
           </Box>
           <Button
             key="boop"
@@ -560,7 +725,7 @@ export const register: Register = on => {
           />
         </Box>
         <Box position="absolute" top={-2} left={0} display="none" hover={{ display: 'flex' }} paddingX={1} borderStyle="round">
-          <Text size="caption">{v.summary}</Text>
+          <Text size="caption">{v.nextBoop ? `${v.summary} · next boop in ${v.nextBoop}` : v.summary}</Text>
         </Box>
         {isOpen ? (
           <Box flexDirection="column" gap={1}>

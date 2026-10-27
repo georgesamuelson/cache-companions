@@ -26,6 +26,14 @@ import {
   addTurn,
   bigNotice,
   emptyTotals,
+  boopOutcome,
+  retryAt,
+  boopStartMs,
+  isBoopHung,
+  noteFor,
+  normalizeSettings,
+  addFailedBoop,
+  addLostWindow,
 } from '../hooks/core'
 
 const MIN = 60_000
@@ -122,7 +130,16 @@ test('a resume starts the countdown from the last reply, or cold if it lapsed', 
 })
 
 describe('auto-boop', () => {
-  const base = { settings: { auto: true, maxAwayMinutes: 60, maxContextTokens: 400_000, stopWhenBig: false }, isBusy: false, isBooping: false, awayMs: 10 * MIN }
+  const base = {
+    settings: { auto: true, maxAwayMinutes: 60, maxContextTokens: 400_000, stopWhenBig: false, earlyPercent: null, remote: false },
+    isBusy: false,
+    isBooping: false,
+    awayMs: 10 * MIN,
+    windowMs: 5 * MIN,
+    now: 0,
+    retryAt: null,
+    jitterMs: 0,
+  }
 
   test('boops only in the last 30 seconds, and only when idle', () => {
     const rt = { boopsInRow: 0, contextTokens: 50_000 }
@@ -191,6 +208,8 @@ describe('savings estimate', () => {
     expect(preventedUsd(usage(200_000, 0), price, 5, 8 * MIN, 1)).toBe(0.96)
     expect(preventedUsd(usage(200_000, 0), price, 5, 3 * MIN, 1)).toBe(0)
     expect(preventedUsd(usage(200_000, 0), price, 5, 8 * MIN, 0)).toBe(0)
+    // A turn of several requests read the conversation several times; only the first would have rebuilt it.
+    expect(preventedUsd(usage(600_000, 0), price, 5, 8 * MIN, 1, 200_000)).toBe(0.96)
   })
 
   test('subscription mode never shows a bare dollar figure', () => {
@@ -202,5 +221,112 @@ describe('savings estimate', () => {
     const api = statsText({ session: t, allTime: t, mode: 'api', hasPrices: true, lastWasCached: true, windowMinutes: 5, windowSource: 'assumed', auto: false })
     expect(api).not.toMatch(/API prices/)
     expect(api).toMatch(/\$3\.80/)
+  })
+})
+
+describe('shaky connections', () => {
+  const ok = (read: number, write: number) => ({ isAnswered: true as const, usage: usage(read, write) })
+  const fail = (status: number | null, error: string, read = 0) => ({ isAnswered: false as const, reason: 'api-error', status, error, usage: usage(read, 0, 0, 0) })
+
+  test('a boop counts as done only when its usage shows a cache read', () => {
+    expect(boopOutcome(ok(80_000, 0))).toEqual({ kind: 'fed' })
+    expect(boopOutcome(ok(0, 90_000))).toEqual({ kind: 'rebuilt' })
+    // A dropped connection still reports usage, all zeros: not a boop.
+    expect(boopOutcome(fail(null, 'unknown'))).toEqual({ kind: 'failed', why: 'offline' })
+    expect(boopOutcome(fail(529, 'overloaded'))).toEqual({ kind: 'failed', why: 'busy' })
+    expect(boopOutcome(fail(429, 'rate_limit'))).toEqual({ kind: 'failed', why: 'busy' })
+    expect(boopOutcome(fail(401, 'authentication_failed'))).toEqual({ kind: 'failed', why: 'stopped' })
+    expect(boopOutcome(fail(400, 'invalid_request'))).toEqual({ kind: 'failed', why: 'stopped' })
+    // Failed partway, but the cache was read: the cache was refreshed.
+    expect(boopOutcome(fail(null, 'unknown', 80_000))).toEqual({ kind: 'fed' })
+    expect(boopOutcome({ isAnswered: false, reason: 'aborted', usage: usage(0, 0, 0, 0) })).toEqual({ kind: 'failed', why: 'busy' })
+    expect(boopOutcome({ isAnswered: false, reason: 'empty-reply', usage: usage(80_000, 0) })).toEqual({ kind: 'fed' })
+    // Failed after an earlier step of the fork wrote the whole prefix: it rebuilt, and that cost counts.
+    expect(boopOutcome({ ...fail(null, 'unknown'), usage: usage(0, 90_000) })).toEqual({ kind: 'rebuilt' })
+  })
+
+  test('retries back off 30 s, 60 s, 2 min, but never past the window', () => {
+    // An hour window, first boop early with 12 minutes left: the full ladder.
+    expect(retryAt(0, 1, 12 * MIN)).toBe(30_000)
+    expect(retryAt(0, 2, 11 * MIN)).toBe(60_000)
+    expect(retryAt(0, 3, 10 * MIN)).toBe(120_000)
+    expect(retryAt(0, 9, 8 * MIN)).toBe(120_000)
+    // Today's 30-second boop: half the time left each time, at least 5 s.
+    expect(retryAt(0, 1, 30_000)).toBe(15_000)
+    expect(retryAt(0, 2, 15_000)).toBe(7_500)
+    expect(retryAt(0, 3, 12_000)).toBe(6_000)
+    // No room left before the last 3 seconds: give up.
+    expect(retryAt(0, 3, 7_500)).toBe(null)
+  })
+
+  test('boop early starts at a share of the window; off is the last 30 seconds', () => {
+    expect(boopStartMs(60 * MIN, null, false, 0)).toBe(30_000)
+    expect(boopStartMs(60 * MIN, 80, false, 0)).toBe(12 * MIN)
+    expect(boopStartMs(5 * MIN, 80, false, 0)).toBe(1 * MIN)
+    // Remote mode: 70% unless you set your own share.
+    expect(boopStartMs(60 * MIN, null, true, 0)).toBe(18 * MIN)
+    expect(boopStartMs(60 * MIN, 80, true, 0)).toBe(12 * MIN)
+    // Never later than today's 30 seconds; the stagger moves it earlier.
+    expect(boopStartMs(5 * MIN, 95, false, 0)).toBe(30_000)
+    expect(boopStartMs(5 * MIN, 80, true, 4_000)).toBe(64_000)
+  })
+
+  test('auto-boop with early on, and waiting for the next retry', () => {
+    const rt = { contextTokens: 1 }
+    const base = {
+      settings: { auto: true, maxAwayMinutes: 0, maxContextTokens: 400_000, stopWhenBig: false, earlyPercent: null, remote: false },
+      isBusy: false,
+      isBooping: false,
+      awayMs: 10 * MIN,
+      now: 0,
+      retryAt: null,
+      jitterMs: 0,
+    }
+    const early = { ...base, settings: { ...base.settings, earlyPercent: 80 }, windowMs: 60 * MIN }
+    expect(autoBoop({ ...early, rt, leftMs: 13 * MIN })).toBe('wait')
+    expect(autoBoop({ ...early, rt, leftMs: 12 * MIN })).toBe('boop')
+    expect(autoBoop({ ...early, rt, leftMs: 11 * MIN, now: 10_000, retryAt: 30_000 })).toBe('wait')
+    expect(autoBoop({ ...early, rt, leftMs: 11 * MIN, now: 30_000, retryAt: 30_000 })).toBe('boop')
+  })
+
+  test('a boop with no answer after 20 s stops blocking retries', () => {
+    expect(isBoopHung(null, 100_000)).toBe(false)
+    expect(isBoopHung(0, 19_000)).toBe(false)
+    expect(isBoopHung(0, 20_000)).toBe(true)
+  })
+
+  test('the band says when boops are failing, and when remote mode is on', () => {
+    const n = (o: Partial<Parameters<typeof noteFor>[0]>) => noteFor({ failedBoops: 0, lastFailure: null, mood: 'fresh', remote: false, ...o })
+    expect(n({})).toBe(null)
+    expect(n({ remote: true })).toBe('remote')
+    expect(n({ failedBoops: 1, lastFailure: 'busy' })).toBe('retrying')
+    expect(n({ failedBoops: 2, lastFailure: 'offline', remote: true })).toBe('offline')
+    expect(n({ failedBoops: 2, lastFailure: 'offline', mood: 'cold' })).toBe('likely-cold')
+    // While your turn runs (and rebuilds), no failure words.
+    expect(n({ failedBoops: 2, lastFailure: 'offline', mood: 'idle' })).toBe(null)
+    const c = countdown({ lastFedAt: 0, fedUntil: 0 }, 5 * MIN, 78_000, false)
+    expect(statusText('ʕ•ᴥ•ʔ', c, true, 'offline')).toBe('ʕ•ᴥ•ʔ 3:42↻ offline')
+    const cold = countdown({ lastFedAt: 0, fedUntil: 0 }, 5 * MIN, 400_000, false)
+    expect(statusText('ʕ-ᴥ-ʔᶻᶻ', cold, true, 'likely-cold')).toBe('ʕ-ᴥ-ʔᶻᶻ likely cold')
+  })
+
+  test('early is off by default and takes 10 to 95 percent', () => {
+    expect(DEFAULT_SETTINGS.earlyPercent).toBe(null)
+    expect(DEFAULT_SETTINGS.remote).toBe(false)
+    expect(normalizeSettings({ earlyPercent: 80 }).earlyPercent).toBe(80)
+    expect(normalizeSettings({ earlyPercent: 5 }).earlyPercent).toBe(null)
+    expect(normalizeSettings({ earlyPercent: 'x' }).earlyPercent).toBe(null)
+    expect(normalizeSettings({ remote: true }).remote).toBe(true)
+  })
+
+  test('stats count failed boops and windows lost after one', () => {
+    // A window counts as lost only when the next real turn really rebuilt.
+    let t = addFailedBoop(emptyTotals(), 0)
+    t = addLostWindow(addFailedBoop(t, 0))
+    expect(t.boops).toBe(0)
+    expect(t.boopFails).toBe(2)
+    expect(t.lostAfterFail).toBe(1)
+    const s = statsText({ session: t, allTime: t, mode: 'api', hasPrices: true, lastWasCached: null, windowMinutes: 5, windowSource: 'assumed', auto: true })
+    expect(s).toMatch(/2 boops failed, 1 window lost after one/)
   })
 })

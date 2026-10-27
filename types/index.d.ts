@@ -4,6 +4,10 @@ export type Mood = 'idle' | 'fresh' | 'peckish' | 'hungry' | 'fed' | 'cold'
 export type TtlSetting = 'auto' | 5 | 60
 export type TtlSource = 'claude-code' | 'learned' | 'assumed' | 'setting'
 export type BillingMode = 'api' | 'subscription'
+/** Why a boop didn't land: no connection, the API busy or erroring, or a refusal retrying won't fix. */
+export type BoopFailure = 'offline' | 'busy' | 'stopped'
+/** What the band and the CLI entry say beside the timer, when anything. */
+export type Note = 'retrying' | 'offline' | 'likely-cold' | 'remote'
 
 /** Dollars per million tokens. */
 export type Price = {
@@ -26,6 +30,10 @@ export type Settings = {
   /** Stop auto-boop past maxContextTokens; off by default (it keeps booping). */
   stopWhenBig: boolean
   sound: boolean
+  /** First auto-boop at this percent of the window; null = about 30 s before expiry. */
+  earlyPercent: number | null
+  /** Travel mode: boops early (70% unless earlyPercent is set) and staggers across panes. */
+  remote: boolean
   /** Per-model overrides of the built-in price table, keyed like `opus-5-5`. */
   prices: Record<string, Price>
 }
@@ -40,6 +48,10 @@ export type Totals = {
   boops: number
   boopCostUsd: number
   preventedUsd: number
+  /** Boops that didn't land (no cache read came back). */
+  boopFails: number
+  /** Windows that closed after a failed boop: the cache likely went cold. */
+  lostAfterFail: number
 }
 
 export type Usage = {
@@ -66,6 +78,13 @@ export type Runtime = {
   hungrySpellNotified: boolean
   capNotified: boolean
   sizeNotified: boolean
+  /** Failed boops since the cache was last fed. */
+  failedBoops: number
+  lastFailure: BoopFailure | null
+  /** No auto-boop before this time: the next retry, or the window's end once it gave up. */
+  retryAt: number | null
+  /** The "likely cold" toast was shown for this window. */
+  coldNotified: boolean
   session: Totals
 }
 
@@ -82,6 +101,18 @@ export type View = {
   settings: Settings
   windowMinutes: number
   windowSource: TtlSource
+  note: Note | null
+  /** Time until the next planned auto-boop, `m:ss`; null when none is planned. */
+  nextBoop: string | null
+}
+
+/** The parts of a `$.model.fork` result the rules read. */
+export type BoopReply = {
+  isAnswered: boolean
+  reason?: string
+  status?: number | null
+  error?: string
+  usage?: Usage
 }
 
 declare module 'claude-code' {

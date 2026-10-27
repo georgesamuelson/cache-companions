@@ -11,7 +11,14 @@ const usage = (read: number, write: number) => ({
 })
 
 /** The engine beneath the plugin: what it asks of the session, and what it shows. */
-function world(on: On, opts: { kind?: string; settings?: object; env?: Record<string, string>; percentUsed?: number; forkRebuilds?: boolean } = {}) {
+type ForkReply = { isAnswered: true; text: string; usage: ReturnType<typeof usage> } | { isAnswered: false; reason: 'api-error'; status: number | null; error: 'unknown' | 'overloaded' | 'authentication_failed'; usage: ReturnType<typeof usage> }
+/** The connection is down: the fork reports zeros, as a dropped request does. */
+const DROPPED: ForkReply = { isAnswered: false, reason: 'api-error', status: null, error: 'unknown', usage: { ...usage(0, 0), input_tokens: 0, output_tokens: 0 } }
+
+function world(
+  on: On,
+  opts: { kind?: string; settings?: object; env?: Record<string, string>; percentUsed?: number; forkRebuilds?: boolean; fork?: (n: number) => ForkReply | undefined; contextTokens?: number } = {},
+) {
   const model = { current: 'claude-opus-5-5' }
   const clock = mock.clock(on, { now: 1_000_000 })
   // The machine's plugin store, which every session on it shares.
@@ -26,7 +33,7 @@ function world(on: On, opts: { kind?: string; settings?: object; env?: Record<st
   // Past its plan (usage credits) by default, so the window is 5 minutes.
   const rateLimits = (opts.kind ?? 'claude.ai') === 'claude.ai' ? [{ kind: 'five_hour', percentUsed: opts.percentUsed ?? 100 }] : []
   on('settings.read', () => ({ value: {} }))
-  on('session.usage', () => ({ value: { startedAt: 0, context: {}, rateLimits } as never }))
+  on('session.usage', () => ({ value: { startedAt: 0, context: { tokens: opts.contextTokens, window: 1_000_000 }, rateLimits } as never }))
   on('command.register', (_$, e) => ({ value: { command: e.name } }))
   on('ui.status', (_$, e) => {
     shown.status.push(e.text)
@@ -39,6 +46,8 @@ function world(on: On, opts: { kind?: string; settings?: object; env?: Record<st
   on('ui.log', () => ({ value: undefined }))
   on('model.fork', () => {
     shown.forks += 1
+    const scripted = opts.fork?.(shown.forks)
+    if (scripted) return { value: scripted }
     return { value: { isAnswered: true as const, text: 'boop', usage: opts.forkRebuilds ? usage(0, 90_000) : usage(80_000, 0) } }
   })
   on('session.start', () => ({ cwd: '/' }))
@@ -263,4 +272,110 @@ test('the CLI shows the companion at the end of the hint line', async ($, on) =>
   const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'terminal', component: 'PromptHint', props: HINT })
   expect((await ui.find({ type: 'Text' }))?.text).toBe('auto mode on · ʕ^ᴥ^ʔ 5:00↻')
   await ui.unmount()
+})
+
+test('a boop that fails on a dropped connection does not reset the timer, and retries until it lands', async ($, on) => {
+  // The first two boops hit a dead connection; the third gets through.
+  const { clock, shown } = world(on, { fork: n => (n <= 2 ? DROPPED : undefined) })
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await aTurn($, 90_000, 0)
+  await clock.advance(4 * 60_000 + 31_000)
+  expect(shown.forks).toBe(1)
+  // Still counting down from the turn, and saying so.
+  expect(await status($)).toBe('ʕ•o•ʔ! 0:29↻ offline')
+  expect(shown.toasts.some(t => /already gone/.test(t))).toBe(false)
+  await clock.advance(15_000)
+  expect(shown.forks).toBe(2)
+  await clock.advance(8_000)
+  expect(shown.forks).toBe(3)
+  // Warm again, counted from when that boop went out.
+  expect(await status($)).toMatch(/ 4:5\d↻$/)
+  const stats = await $.command.run({ command: 'boop', args: 'stats', ...RUN })
+  expect(stats.text).toMatch(/2 boops failed/)
+})
+
+test('when the connection stays down past the window: likely cold, one toast, no more boops', async ($, on) => {
+  const { clock, shown } = world(on, { fork: () => DROPPED })
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await aTurn($, 90_000, 0)
+  await clock.advance(6 * 60_000)
+  const tries = shown.forks
+  expect(tries).toBe(3)
+  expect(await status($)).toBe('ʕ-ᴥ-ʔᶻᶻ likely cold')
+  expect(shown.toasts.filter(t => /likely went cold/.test(t)).length).toBe(1)
+  await clock.advance(10 * 60_000)
+  expect(shown.forks).toBe(tries)
+  // You come back: that turn rebuilds, so the window counts as lost, and the warning clears.
+  await $.prompt.submit({ text: 'hello', origin: { kind: 'composer' }, wait: false })
+  await aTurn($, 0, 90_000)
+  const stats = await $.command.run({ command: 'boop', args: 'stats', ...RUN })
+  expect(stats.text).toMatch(/3 boops failed, 1 window lost/)
+  expect(await status($)).toMatch(/ 5:00↻$/)
+})
+
+test('a boop Claude refuses (sign-in) stops retrying until the next message', async ($, on) => {
+  const refused: ForkReply = { ...DROPPED, status: 401, error: 'authentication_failed' }
+  const { clock, shown } = world(on, { fork: () => refused })
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await aTurn($, 90_000, 0)
+  await clock.advance(5 * 60_000)
+  expect(shown.forks).toBe(1)
+  expect(shown.toasts.some(t => /refused/.test(t))).toBe(true)
+})
+
+test('/boop early 80 boops at 4:00 left on a 5-minute window; early off goes back to 30 s', async ($, on) => {
+  const { clock, shown, store } = world(on)
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  const r = await $.command.run({ command: 'boop', args: 'early 80', ...RUN })
+  expect(r.text).toMatch(/80%/)
+  expect((store.get('settings') as { earlyPercent: number }).earlyPercent).toBe(80)
+  await aTurn($, 90_000, 0)
+  await clock.advance(3 * 60_000 + 59_000)
+  expect(shown.forks).toBe(0)
+  await clock.advance(2_000)
+  expect(shown.forks).toBe(1)
+  await $.command.run({ command: 'boop', args: 'early off', ...RUN })
+  await aTurn($, 90_000, 0)
+  await clock.advance(4 * 60_000)
+  expect(shown.forks).toBe(1)
+  await clock.advance(31_000)
+  expect(shown.forks).toBe(2)
+})
+
+test('/boop remote shows remote, boops at about 70%, and /boop remote off ends it', async ($, on) => {
+  const { clock, shown } = world(on)
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await $.command.run({ command: 'boop', args: 'remote', ...RUN })
+  await aTurn($, 90_000, 0)
+  await clock.advance(3_000)
+  expect(await status($)).toMatch(/↻ remote$/)
+  // 70% of 5 minutes is 3:30 in, less a stagger of up to 10 s.
+  await clock.advance(3 * 60_000 + 27_000 - 3_000 - 11_000)
+  expect(shown.forks).toBe(0)
+  await clock.advance(15_000)
+  expect(shown.forks).toBe(1)
+  await $.command.run({ command: 'boop', args: 'remote off', ...RUN })
+  expect(await status($)).not.toMatch(/remote/)
+})
+
+test('the size notice uses the conversation size, not a turn that added up many requests', async ($, on) => {
+  // A turn with tool calls: its requests summed come to 830k, but the conversation is 98k.
+  const { shown } = world(on, { contextTokens: 98_000 })
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await aTurn($, 800_000, 30_000)
+  expect(shown.toasts.some(t => /\/compact/.test(t))).toBe(false)
+})
+
+test('in the desktop app\'s Terminal panel the CLI entry uses the text face, which it draws at the right width', async ($, on) => {
+  world(on, { settings: { animal: 'cat', style: 'emoji', auto: false }, env: { TERM_PROGRAM: 'claude-desktop' } })
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await aTurn($, 90_000, 0)
+  expect(await status($)).toBe('(=^‿^=) 5:00')
+})
+
+test('other terminals keep the emoji face', async ($, on) => {
+  world(on, { settings: { animal: 'cat', style: 'emoji', auto: false } })
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await aTurn($, 90_000, 0)
+  expect(await status($)).toBe('😻 5:00')
 })

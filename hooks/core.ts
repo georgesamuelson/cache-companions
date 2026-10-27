@@ -3,8 +3,11 @@
 import type {
   Animal,
   BillingMode,
+  BoopFailure,
+  BoopReply,
   FaceStyle,
   Mood,
+  Note,
   Price,
   Runtime,
   Settings,
@@ -25,6 +28,9 @@ export const DEFAULT_SETTINGS: Settings = {
   maxContextTokens: 400_000,
   stopWhenBig: false,
   sound: false,
+  // Boop early is off: the first auto-boop comes about 30 s before expiry, as before.
+  earlyPercent: null,
+  remote: false,
   prices: {},
 }
 
@@ -36,6 +42,17 @@ export const AUTO_BOOP_AT_MS = 30_000
 /** ...but not this close to expiry, in case the boop is slow to land. */
 export const AUTO_BOOP_LATEST_MS = 3_000
 export const FED_MS = 2_000
+/** `/boop remote` boops at this share of the window unless `/boop early` says otherwise. */
+export const REMOTE_EARLY_PERCENT = 70
+/** Waits between retries of a failed boop; the last one repeats. */
+export const RETRY_STEPS_MS = [30_000, 60_000, 120_000] as const
+export const RETRY_FLOOR_MS = 5_000
+/** A boop with no answer after this long stops holding up retries (a fork has no timeout). */
+export const BOOP_HUNG_MS = 20_000
+/** At most this many boops out at once, a hung one included. */
+export const MAX_BOOPS_OUT = 2
+/** Remote mode moves each pane's boops by up to this much, so panes don't all try at once. */
+export const STAGGER_MS = 10_000
 export const BOOP_PROMPT = 'boop, reply with one word'
 
 // ---------- faces ----------
@@ -98,10 +115,28 @@ export function clockText(ms: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 }
 
-/** The CLI status entry: `ʕ•ᴥ•ʔ 3:42`, `↻` after the time while auto-boop is on. */
-export function statusText(face: string, c: Countdown, auto: boolean): string {
-  if (c.leftMs === null || c.mood === 'cold') return face
-  return `${face} ${clockText(c.leftMs)}${auto ? '↻' : ''}`
+export const NOTE_SHORT: Record<Note, string> = { retrying: 'retrying', offline: 'offline', 'likely-cold': 'likely cold', remote: 'remote' }
+export const NOTE_LONG: Record<Note, string> = {
+  retrying: 'boop failed, retrying',
+  offline: 'offline, will retry',
+  'likely-cold': 'cache likely cold',
+  remote: 'remote',
+}
+
+/** The CLI status entry: `ʕ•ᴥ•ʔ 3:42`, `↻` after the time while auto-boop is on, then any note. */
+export function statusText(face: string, c: Countdown, auto: boolean, note: Note | null = null): string {
+  const tail = note ? ` ${NOTE_SHORT[note]}` : ''
+  if (c.leftMs === null || c.mood === 'cold') return `${face}${tail}`
+  return `${face} ${clockText(c.leftMs)}${auto ? '↻' : ''}${tail}`
+}
+
+/** Failing boops say so first; a cold cache after them says "likely cold"; otherwise remote mode shows. */
+export function noteFor(a: { failedBoops: number; lastFailure: BoopFailure | null; mood: Mood; remote: boolean }): Note | null {
+  if (a.failedBoops > 0 && a.mood !== 'idle') {
+    if (a.mood === 'cold') return 'likely-cold'
+    return a.lastFailure === 'offline' ? 'offline' : 'retrying'
+  }
+  return a.remote ? 'remote' : null
 }
 
 // ---------- the cache window ----------
@@ -170,21 +205,73 @@ export function resumedFedAt(now: number, secondsSince: number | undefined, like
 
 // ---------- auto-boop ----------
 
+/**
+ * How much of the window is left when the first auto-boop fires: about 30 s,
+ * or with boop early the rest of the window after that share. Never later
+ * than 30 s; the remote stagger moves it earlier.
+ */
+export function boopStartMs(windowMs: number, earlyPercent: number | null, remote: boolean, jitterMs: number): number {
+  const percent = earlyPercent ?? (remote ? REMOTE_EARLY_PERCENT : null)
+  const left = percent === null ? AUTO_BOOP_AT_MS : Math.max(AUTO_BOOP_AT_MS, Math.round(windowMs * (1 - percent / 100)))
+  return left + (remote ? jitterMs : 0)
+}
+
+/**
+ * When to try a failed boop again: the next backoff step or half the time
+ * left, whichever is sooner, at least 5 s; null when that would land in the
+ * window's last 3 s, so it gives up.
+ */
+export function retryAt(now: number, failures: number, leftMs: number): number | null {
+  const step = RETRY_STEPS_MS[Math.min(Math.max(failures, 1), RETRY_STEPS_MS.length) - 1]!
+  const wait = Math.max(RETRY_FLOOR_MS, Math.min(step, leftMs / 2))
+  return wait > leftMs - AUTO_BOOP_LATEST_MS ? null : now + wait
+}
+
+/**
+ * What a boop achieved, from its usage alone: a cache read on any reply,
+ * even a failed or cut one, means the cache was refreshed. A dropped
+ * connection reports usage too, all zeros, so usage alone proves nothing.
+ */
+export type BoopOutcome = { kind: 'fed' } | { kind: 'rebuilt' } | { kind: 'failed'; why: BoopFailure }
+
+export function boopOutcome(r: BoopReply): BoopOutcome {
+  if (r.usage && isCached(r.usage)) return { kind: 'fed' }
+  if (r.isAnswered) return { kind: 'rebuilt' }
+  // A fork can take more than one step; one before the failure may have written the prefix.
+  if (r.usage && r.usage.cache_creation_input_tokens > 1024) return { kind: 'rebuilt' }
+  if (r.reason === 'api-error') {
+    if (r.status === null || r.status === undefined) return { kind: 'failed', why: 'offline' }
+    if (r.error === 'authentication_failed' || r.error === 'invalid_request') return { kind: 'failed', why: 'stopped' }
+  }
+  return { kind: 'failed', why: 'busy' }
+}
+
+export function isBoopHung(startedAt: number | null, now: number): boolean {
+  return startedAt !== null && now - startedAt >= BOOP_HUNG_MS
+}
+
 export type AutoBoopCheck = {
-  settings: Pick<Settings, 'auto' | 'maxAwayMinutes' | 'maxContextTokens' | 'stopWhenBig'>
+  settings: Pick<Settings, 'auto' | 'maxAwayMinutes' | 'maxContextTokens' | 'stopWhenBig' | 'earlyPercent' | 'remote'>
   rt: Pick<Runtime, 'contextTokens'>
   /** How long since your last turn ended; null before the first. */
   awayMs: number | null
   leftMs: number | null
   isBusy: boolean
   isBooping: boolean
+  windowMs: number
+  now: number
+  /** No boop before this time (a retry is waiting, or it gave up for this window). */
+  retryAt: number | null
+  /** This pane's stagger in remote mode. */
+  jitterMs: number
 }
 
 export type AutoBoopDecision = 'boop' | 'wait' | 'cap' | 'too-big'
 
 export function autoBoop(c: AutoBoopCheck): AutoBoopDecision {
   if (!c.settings.auto || c.isBusy || c.isBooping || c.leftMs === null) return 'wait'
-  if (c.leftMs > AUTO_BOOP_AT_MS || c.leftMs < AUTO_BOOP_LATEST_MS) return 'wait'
+  if (c.leftMs > boopStartMs(c.windowMs, c.settings.earlyPercent, c.settings.remote, c.jitterMs) || c.leftMs < AUTO_BOOP_LATEST_MS) return 'wait'
+  if (c.retryAt !== null && c.now < c.retryAt) return 'wait'
   if (c.settings.stopWhenBig && c.rt.contextTokens > c.settings.maxContextTokens) return 'too-big'
   if (c.settings.maxAwayMinutes > 0 && c.awayMs !== null && c.awayMs > c.settings.maxAwayMinutes * 60_000) return 'cap'
   return 'boop'
@@ -192,8 +279,12 @@ export function autoBoop(c: AutoBoopCheck): AutoBoopDecision {
 
 /** A prompt the person typed: the boop streak and its warnings start over. */
 export function onRealPrompt(rt: Runtime): Runtime {
+  // Failed-boop state clears when that turn completes, after it shows whether the window was lost.
   return { ...rt, boopsInRow: 0, capNotified: false }
 }
+
+/** The cache was fed (a turn or a boop that landed): failures start over. */
+export const boopsLanded = { failedBoops: 0, lastFailure: null, retryAt: null, coldNotified: false } as const
 
 /**
  * Said once when a conversation grows past maxContextTokens. Keeping it warm
@@ -252,13 +343,23 @@ export function boopCostUsd(u: Usage, price: Price | null, windowMinutes: 5 | 60
 /**
  * What the boops before a real turn prevented: only when that turn came after
  * the window would have closed without them, and then the rebuild it would
- * have paid, the tokens it read from cache written again instead.
+ * have paid, the tokens it read from cache written again instead. A turn's
+ * usage adds up all its requests, and only the first would have rebuilt, so
+ * the tokens are capped at the conversation's size before the turn.
  */
-export function preventedUsd(u: Usage, price: Price | null, windowMinutes: 5 | 60, gapSinceRealMs: number | null, boopsBefore: number): number {
+export function preventedUsd(
+  u: Usage,
+  price: Price | null,
+  windowMinutes: 5 | 60,
+  gapSinceRealMs: number | null,
+  boopsBefore: number,
+  prefixTokens?: number,
+): number {
   if (!price || boopsBefore === 0 || gapSinceRealMs === null) return 0
   if (gapSinceRealMs <= windowMinutes * 60_000) return 0
   const write = windowMinutes === 60 ? price.write1h : price.write5m
-  return perM(u.cache_read_input_tokens, write - price.read)
+  const rebuilt = prefixTokens === undefined ? u.cache_read_input_tokens : Math.min(u.cache_read_input_tokens, prefixTokens)
+  return perM(rebuilt, write - price.read)
 }
 
 export function emptyTotals(): Totals {
@@ -272,6 +373,8 @@ export function emptyTotals(): Totals {
     boops: 0,
     boopCostUsd: 0,
     preventedUsd: 0,
+    boopFails: 0,
+    lostAfterFail: 0,
   }
 }
 
@@ -302,6 +405,23 @@ export function sumTotals(a: Partial<Totals> | undefined, b: Totals): Totals {
 
 export function addBoop(t: Totals, cost: number): Totals {
   return { ...t, boops: t.boops + 1, boopCostUsd: t.boopCostUsd + cost }
+}
+
+/** A boop that didn't land: counted apart, its cost (if any came back) still counted. */
+export function addFailedBoop(t: Totals, cost: number): Totals {
+  return { ...t, boopFails: t.boopFails + 1, boopCostUsd: t.boopCostUsd + cost }
+}
+
+/** The window closed after failed boops, and the next real turn did rebuild. */
+export function addLostWindow(t: Totals): Totals {
+  return { ...t, lostAfterFail: t.lostAfterFail + 1 }
+}
+
+/** Said once when a pane's cache likely went cold because its boops didn't get through. */
+export function coldNotice(why: BoopFailure | null, remote: boolean): string {
+  const how = why === 'offline' ? 'there was no connection' : 'Claude was busy or erroring'
+  const tip = remote ? '' : ' /boop remote boops earlier so retries have room.'
+  return `Your cache likely went cold: the boops before it expired didn't get through (${how}). Your next message rebuilds it.${tip}`
 }
 
 // ---------- words ----------
@@ -368,6 +488,9 @@ export function statsText(a: {
           : `  boops: ${t.boops}`,
       )
     }
+    if (t.boopFails > 0) {
+      lines.push(`  ${t.boopFails} boop${t.boopFails === 1 ? '' : 's'} failed, ${t.lostAfterFail} window${t.lostAfterFail === 1 ? '' : 's'} lost after one`)
+    }
     return lines.join('\n')
   }
   const source = { 'claude-code': 'how Claude Code sets it for your plan', learned: 'corrected from what your replies showed', assumed: 'assumed until the first reply', setting: 'your setting' }[a.windowSource]
@@ -394,9 +517,15 @@ export function normalizeSettings(raw: unknown): Settings {
     maxContextTokens:
       Number.isFinite(s.maxContextTokens) && s.maxContextTokens > 0 ? Math.floor(s.maxContextTokens) : DEFAULT_SETTINGS.maxContextTokens,
     sound: s.sound === true,
+    earlyPercent: isEarlyPercent(s.earlyPercent) ? Math.round(s.earlyPercent) : null,
+    remote: s.remote === true,
     stopWhenBig: s.stopWhenBig === true,
     prices: typeof s.prices === 'object' && s.prices !== null ? s.prices : {},
   }
+}
+
+export function isEarlyPercent(n: unknown): n is number {
+  return typeof n === 'number' && Number.isFinite(n) && n >= 10 && n <= 95
 }
 
 export function freshRuntime(): Runtime {
@@ -413,6 +542,7 @@ export function freshRuntime(): Runtime {
     hungrySpellNotified: false,
     capNotified: false,
     sizeNotified: false,
+    ...boopsLanded,
     session: emptyTotals(),
   }
 }
@@ -421,10 +551,12 @@ export function freshRuntime(): Runtime {
 export function settingsText(s: Settings, windowMinutes: number, windowSource: TtlSource): string {
   const away = s.maxAwayMinutes === 0 ? 'always' : s.maxAwayMinutes === NIGHT_MINUTES ? 'night (8 h)' : `${s.maxAwayMinutes} min`
   const window = s.ttl === 'auto' ? `auto (now ${windowMinutes} min)` : `${windowMinutes} min (your setting)`
+  const early = s.earlyPercent !== null ? `${s.earlyPercent}%` : s.remote ? `${REMOTE_EARLY_PERCENT}% (remote)` : 'off'
   return [
     `Animal: ${s.animal} · Faces: ${s.style} · Sound: ${s.sound ? 'on' : 'off'}`,
     `Auto-boop: ${s.auto ? 'on' : 'off'} · Keep warm: ${away} · Window: ${window}`,
-    'Change with /boop bear|cat|dog, /boop auto on|off, /boop away off|60|120, /boop night, /boop window auto|5|60.',
+    `Boop early: ${early} · Remote: ${s.remote ? 'on' : 'off'}`,
+    'Change with /boop bear|cat|dog, /boop auto on|off, /boop away off|60|120, /boop night, /boop window auto|5|60, /boop early <percent>|off, /boop remote on|off.',
   ].join('\n')
 }
 
@@ -447,6 +579,9 @@ export const HELP = [
   '/boop sound on|off     one soft sound when it gets hungry',
   '/boop window auto|5|60 cache window in minutes (auto detects it)',
   '/boop big keep|stop    keep auto-booping big conversations (default) or stop',
+  '/boop early <percent>  first auto-boop at that share of the window (10–95), so retries have room',
+  '/boop early off        first auto-boop about 30 s before expiry (the default)',
+  '/boop remote [on|off]  travel mode: boop early (70%), retry, stagger panes on a shaky connection',
   '/boop stats            what the cache saved (estimate)',
   '/boop price <model> <input> <write5m> <write1h> <read> <output>   override a price ($/M tokens)',
   '/boop price reset      back to the built-in prices',

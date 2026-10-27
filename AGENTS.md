@@ -41,6 +41,9 @@ Gotchas: the desktop app's `/` menu doesn't list `/boop` (type it in full); a de
 - Easy mode: auto-boop on by default with no time limit (`/boop away 60|120`, `/boop night` = 8 h). `CACHE_COMPANIONS_AUTO=0` starts it off.
 - Window follows Claude Code's documented rules (code.claude.com/docs/en/prompt-caching): 1 h on a subscription within plan, 5 min on usage credits / API key / cloud provider, env and `promptCacheTtl` overrides. Credits are inferred from plan usage ≥ 100% (not documented as a signal), so two checks back it up: a rebuild where the hour said warm switches to 5 min, and an auto-boop that finds the cache gone pauses auto-boop until the next message.
 - A model switch shows cold and stops boops until the next message.
+- A boop counts only when a cache read comes back; a failed one retries with backoff and never resets the countdown. Boop early (`/boop early`) and remote mode (`/boop remote`) are off by default (George, 2026-10-27).
+- The desktop app's Terminal panel (`TERM_PROGRAM=claude-desktop`) draws emoji a cell narrower; the CLI entry uses the text face there.
+- A turn's usage adds up all its requests; the conversation's size comes from `$.session.usage().context.tokens`.
 - Big conversations (> 400k) keep auto-booping; one toast suggests `/compact`.
 - Subscribers see dollars only as "at API prices".
 - CLI: entry at the end of the hint line (`PromptHint` tail; Claude Code adds the ` · `). Desktop: band above the prompt. Cloud sessions run the mod but draw no UI.
