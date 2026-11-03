@@ -1,0 +1,3 @@
+# push-rules.sh (this branch's copy = main's once merged) over origin/main..5c19f5f, no .gitleaks.toml/.gitleaksignore present
+clean: claude/cache-companions-wall-build-br547m 4 commits
+exit 0

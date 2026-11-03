@@ -1,0 +1,419 @@
+# shared referee.test.mjs, unchanged from ea-jorts 820f02ce, under this repo's governed list and record, pinned gitleaks 8.30.1 on PATH
+TAP version 13
+# Subtest: behind-main inventory contains only PR commits and records fetched main
+ok 1 - behind-main inventory contains only PR commits and records fetched main
+  ---
+  duration_ms: 653.275246
+  type: 'test'
+  ...
+# Subtest: stored base predates commits already on main; range and merge base use fetched main
+ok 2 - stored base predates commits already on main; range and merge base use fetched main
+  ---
+  duration_ms: 511.084711
+  type: 'test'
+  ...
+# Subtest: behind-main routine PR passes and requests an exact-head squash
+ok 3 - behind-main routine PR passes and requests an exact-head squash
+  ---
+  duration_ms: 534.114082
+  type: 'test'
+  ...
+# Subtest: current-main routine control remains mergeable
+ok 4 - current-main routine control remains mergeable
+  ---
+  duration_ms: 529.891793
+  type: 'test'
+  ...
+# Subtest: stale-base commit-tree attack reaches the unchanged merge hard guard
+ok 5 - stale-base commit-tree attack reaches the unchanged merge hard guard
+  ---
+  duration_ms: 70.358123
+  type: 'test'
+  ...
+# Subtest: commit-tree attack stays red with no merge even with go
+ok 6 - commit-tree attack stays red with no merge even with go
+  ---
+  duration_ms: 74.77726
+  type: 'test'
+  ...
+# Subtest: trusted checkout must equal fetched main
+ok 7 - trusted checkout must equal fetched main
+  ---
+  duration_ms: 52.694737
+  type: 'test'
+  ...
+# Subtest: fetched head must still match inspected PR
+ok 8 - fetched head must still match inspected PR
+  ---
+  duration_ms: 53.700072
+  type: 'test'
+  ...
+# Subtest: go approves head only; moving main does not invalidate it
+ok 9 - go approves head only; moving main does not invalidate it
+  ---
+  duration_ms: 1.112141
+  type: 'test'
+  ...
+# Subtest: new head still invalidates go even with a matching push record
+ok 10 - new head still invalidates go even with a matching push record
+  ---
+  duration_ms: 0.554217
+  type: 'test'
+  ...
+# Subtest: workflow go survives main/base movement and names inspected main for hand merge
+ok 11 - workflow go survives main/base movement and names inspected main for hand merge
+  ---
+  duration_ms: 620.99658
+  type: 'test'
+  ...
+# Subtest: base-only refresh does not stop routine merge
+ok 12 - base-only refresh does not stop routine merge
+  ---
+  duration_ms: 3.623081
+  type: 'test'
+  ...
+# Subtest: routine check note names the inspected main tip
+ok 13 - routine check note names the inspected main tip
+  ---
+  duration_ms: 2.950838
+  type: 'test'
+  ...
+# Subtest: merge 405 becomes red with GitHub reason and retry advice
+ok 14 - merge 405 becomes red with GitHub reason and retry advice
+  ---
+  duration_ms: 3.377811
+  type: 'test'
+  ...
+# Subtest: merge 409 becomes red with GitHub reason and retry advice
+ok 15 - merge 409 becomes red with GitHub reason and retry advice
+  ---
+  duration_ms: 4.491886
+  type: 'test'
+  ...
+# Subtest: unreadable refusal reason still gives a red check: {bad JSON
+ok 16 - unreadable refusal reason still gives a red check: {bad JSON
+  ---
+  duration_ms: 3.330897
+  type: 'test'
+  ...
+# Subtest: unreadable refusal reason still gives a red check: {"message":{}}
+ok 17 - unreadable refusal reason still gives a red check: {"message":{}}
+  ---
+  duration_ms: 2.087716
+  type: 'test'
+  ...
+# Subtest: other merge API errors remain failed inspections
+ok 18 - other merge API errors remain failed inspections
+  ---
+  duration_ms: 2.581507
+  type: 'test'
+  ...
+# Subtest: desired ruleset permits behind-main branches
+ok 19 - desired ruleset permits behind-main branches
+  ---
+  duration_ms: 0.553354
+  type: 'test'
+  ...
+# Subtest: main moved before Ace merge stays red, held=false
+ok 20 - main moved before Ace merge stays red, held=false
+  ---
+  duration_ms: 2.362965
+  type: 'test'
+  ...
+# Subtest: main moved before Ace merge stays red, held=true
+ok 21 - main moved before Ace merge stays red, held=true
+  ---
+  duration_ms: 2.377422
+  type: 'test'
+  ...
+# Subtest: main ref is read with read credential immediately before exact-head merge
+ok 22 - main ref is read with read credential immediately before exact-head merge
+  ---
+  duration_ms: 1.865096
+  type: 'test'
+  ...
+# Subtest: unreadable main fails closed: {"mainResponse":{}}
+ok 23 - unreadable main fails closed: {"mainResponse":{}}
+  ---
+  duration_ms: 2.39244
+  type: 'test'
+  ...
+# Subtest: unreadable main fails closed: {"mainResponse":{"object":{"sha":"bad"}}}
+ok 24 - unreadable main fails closed: {"mainResponse":{"object":{"sha":"bad"}}}
+  ---
+  duration_ms: 3.830057
+  type: 'test'
+  ...
+# Subtest: unreadable main fails closed: {"mainStatus":503}
+ok 25 - unreadable main fails closed: {"mainStatus":503}
+  ---
+  duration_ms: 1.749448
+  type: 'test'
+  ...
+# Subtest: refusal message is capped at 300 characters: 405
+ok 26 - refusal message is capped at 300 characters: 405
+  ---
+  duration_ms: 2.040653
+  type: 'test'
+  ...
+# Subtest: refusal message is capped at 300 characters: 409
+ok 27 - refusal message is capped at 300 characters: 409
+  ---
+  duration_ms: 1.982266
+  type: 'test'
+  ...
+# Subtest: main pushes use the existing admitted sweep job
+ok 28 - main pushes use the existing admitted sweep job
+  ---
+  duration_ms: 1085.055004
+  type: 'test'
+  ...
+# Subtest: main push sweep reloads governed paths and replaces stale routine green
+ok 29 - main push sweep reloads governed paths and replaces stale routine green
+  ---
+  duration_ms: 1310.92721
+  type: 'test'
+  ...
+# Subtest: auto-merge setting uses Ace metadata: false, wall=true
+ok 30 - auto-merge setting uses Ace metadata: false, wall=true
+  ---
+  duration_ms: 532.552395
+  type: 'test'
+  ...
+# Subtest: auto-merge setting uses Ace metadata: true, wall=true
+ok 31 - auto-merge setting uses Ace metadata: true, wall=true
+  ---
+  duration_ms: 5.376565
+  type: 'test'
+  ...
+# Subtest: auto-merge setting uses Ace metadata: undefined, wall=true
+ok 32 - auto-merge setting uses Ace metadata: undefined, wall=true
+  ---
+  duration_ms: 1.830846
+  type: 'test'
+  ...
+# Subtest: auto-merge setting uses Ace metadata: false, wall=false
+ok 33 - auto-merge setting uses Ace metadata: false, wall=false
+  ---
+  duration_ms: 1.486785
+  type: 'test'
+  ...
+# Subtest: routine allow file permits drafts/x.md
+ok 34 - routine allow file permits drafts/x.md
+  ---
+  duration_ms: 1.280547
+  type: 'test'
+  ...
+# Subtest: routine allow file permits inc/a.php
+ok 35 - routine allow file permits inc/a.php
+  ---
+  duration_ms: 1.167603
+  type: 'test'
+  ...
+# Subtest: routine allow file permits pages/a.html
+ok 36 - routine allow file permits pages/a.html
+  ---
+  duration_ms: 0.329847
+  type: 'test'
+  ...
+# Subtest: routine allow file preserves protection for x.yml
+ok 37 - routine allow file preserves protection for x.yml
+  ---
+  duration_ms: 0.281985
+  type: 'test'
+  ...
+# Subtest: routine allow file preserves protection for docs/x.yaml
+ok 38 - routine allow file preserves protection for docs/x.yaml
+  ---
+  duration_ms: 0.13545
+  type: 'test'
+  ...
+# Subtest: routine allow file preserves protection for package.json
+ok 39 - routine allow file preserves protection for package.json
+  ---
+  duration_ms: 0.128454
+  type: 'test'
+  ...
+# Subtest: routine allow file preserves protection for CLAUDE.md
+ok 40 - routine allow file preserves protection for CLAUDE.md
+  ---
+  duration_ms: 0.074125
+  type: 'test'
+  ...
+# Subtest: routine allow file preserves protection for GEMINI.md
+ok 41 - routine allow file preserves protection for GEMINI.md
+  ---
+  duration_ms: 0.079628
+  type: 'test'
+  ...
+# Subtest: routine allow file preserves protection for docs/SKILL.md
+ok 42 - routine allow file preserves protection for docs/SKILL.md
+  ---
+  duration_ms: 0.097012
+  type: 'test'
+  ...
+# Subtest: routine allow file preserves protection for scripts/a.sh
+ok 43 - routine allow file preserves protection for scripts/a.sh
+  ---
+  duration_ms: 0.146594
+  type: 'test'
+  ...
+# Subtest: routine allow file and agent rule files are governed
+ok 44 - routine allow file and agent rule files are governed
+  ---
+  duration_ms: 0.456069
+  type: 'test'
+  ...
+# Subtest: routine allow file uses the existing matcher and every changed path must match
+ok 45 - routine allow file uses the existing matcher and every changed path must match
+  ---
+  duration_ms: 0.16234
+  type: 'test'
+  ...
+# Subtest: routine allow file preserves modes, hidden paths, collisions and sticky holds
+ok 46 - routine allow file preserves modes, hidden paths, collisions and sticky holds
+  ---
+  duration_ms: 0.173532
+  type: 'test'
+  ...
+# Subtest: routine allow file does not waive scan result 4
+ok 47 - routine allow file does not waive scan result 4
+  ---
+  duration_ms: 1.343839
+  type: 'test'
+  ...
+# Subtest: routine allow file does not waive scan result 2
+ok 48 - routine allow file does not waive scan result 2
+  ---
+  duration_ms: 1.13827
+  type: 'test'
+  ...
+# Subtest: routine allow file does not waive fork hold {"full_name":"fork/repo"}
+ok 49 - routine allow file does not waive fork hold {"full_name":"fork/repo"}
+  ---
+  duration_ms: 1.197955
+  type: 'test'
+  ...
+# Subtest: routine allow file does not waive fork hold null
+ok 50 - routine allow file does not waive fork hold null
+  ---
+  duration_ms: 1.103816
+  type: 'test'
+  ...
+# Subtest: trusted routine file content null
+ok 51 - trusted routine file content null
+  ---
+  duration_ms: 554.679066
+  type: 'test'
+  ...
+# Subtest: trusted routine file content ""
+ok 52 - trusted routine file content ""
+  ---
+  duration_ms: 530.652288
+  type: 'test'
+  ...
+# Subtest: trusted routine file content "\# no routine paths\\n"
+ok 53 - trusted routine file content "\# no routine paths\\n"
+  ---
+  duration_ms: 486.816841
+  type: 'test'
+  ...
+# Subtest: trusted routine file content "\# configured on trusted main\\n*\\n"
+ok 54 - trusted routine file content "\# configured on trusted main\\n*\\n"
+  ---
+  duration_ms: 540.397774
+  type: 'test'
+  ...
+# Subtest: trusted checkout includes the governed routine policy
+ok 55 - trusted checkout includes the governed routine policy
+  ---
+  duration_ms: 103.207544
+  type: 'test'
+  ...
+# Subtest: routine dial change requires counted go and is eligible for Ace merge
+ok 56 - routine dial change requires counted go and is eligible for Ace merge
+  ---
+  duration_ms: 0.396468
+  type: 'test'
+  ...
+# Subtest: agent instruction path requires go: SKILL.md
+ok 57 - agent instruction path requires go: SKILL.md
+  ---
+  duration_ms: 0.198013
+  type: 'test'
+  ...
+# Subtest: agent instruction path requires go: skill.md
+ok 58 - agent instruction path requires go: skill.md
+  ---
+  duration_ms: 0.120577
+  type: 'test'
+  ...
+# Subtest: agent instruction path requires go: AGENT.md
+ok 59 - agent instruction path requires go: AGENT.md
+  ---
+  duration_ms: 0.115353
+  type: 'test'
+  ...
+# Subtest: agent instruction path requires go: docs/QWEN.md
+ok 60 - agent instruction path requires go: docs/QWEN.md
+  ---
+  duration_ms: 0.166514
+  type: 'test'
+  ...
+# Subtest: agent instruction path requires go: opencode.json
+ok 61 - agent instruction path requires go: opencode.json
+  ---
+  duration_ms: 0.264553
+  type: 'test'
+  ...
+# Subtest: failed GitHub call logs only step, status and query-free route
+ok 62 - failed GitHub call logs only step, status and query-free route
+  ---
+  duration_ms: 496.929375
+  type: 'test'
+  ...
+# Subtest: failure line strips query strings and labels non-HTTP failures
+ok 63 - failure line strips query strings and labels non-HTTP failures
+  ---
+  duration_ms: 0.328716
+  type: 'test'
+  ...
+# Subtest: API errors carry the route without its query
+ok 64 - API errors carry the route without its query
+  ---
+  duration_ms: 0.361072
+  type: 'test'
+  ...
+# Subtest: a GET on a stale keep-alive socket is retried once and succeeds
+ok 65 - a GET on a stale keep-alive socket is retried once and succeeds
+  ---
+  duration_ms: 0.478087
+  type: 'test'
+  ...
+# Subtest: a second stale-socket GET still fails closed with route and status=none
+ok 66 - a second stale-socket GET still fails closed with route and status=none
+  ---
+  duration_ms: 0.313152
+  type: 'test'
+  ...
+# Subtest: a write is never retried, even on a stale socket
+ok 67 - a write is never retried, even on a stale socket
+  ---
+  duration_ms: 0.486306
+  type: 'test'
+  ...
+# Subtest: a plain network error or a timeout on a GET is not retried
+ok 68 - a plain network error or a timeout on a GET is not retried
+  ---
+  duration_ms: 0.688515
+  type: 'test'
+  ...
+1..68
+# tests 68
+# suites 0
+# pass 68
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 9148.459766

@@ -1,0 +1,467 @@
+# green: Cache Companions dial tests with this repo's routine-paths and governance-paths
+TAP version 13
+# Subtest: cache-companions dial: routine plans/wall-build-2026-11-03.md
+ok 1 - cache-companions dial: routine plans/wall-build-2026-11-03.md
+  ---
+  duration_ms: 5.984404
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: routine plans/wall-build-2026-11-03.evidence/referee-dial-green.txt
+ok 2 - cache-companions dial: routine plans/wall-build-2026-11-03.evidence/referee-dial-green.txt
+  ---
+  duration_ms: 2.901255
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: routine plans/v0.3-notes.txt
+ok 3 - cache-companions dial: routine plans/v0.3-notes.txt
+  ---
+  duration_ms: 0.438299
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: routine docs/boop-early-shaky-connections.md
+ok 4 - cache-companions dial: routine docs/boop-early-shaky-connections.md
+  ---
+  duration_ms: 0.338072
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: routine docs/buymeacoffee-page.md
+ok 5 - cache-companions dial: routine docs/buymeacoffee-page.md
+  ---
+  duration_ms: 0.578036
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: routine docs/notes/idea.md
+ok 6 - cache-companions dial: routine docs/notes/idea.md
+  ---
+  duration_ms: 1.984363
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: routine docs/x.txt
+ok 7 - cache-companions dial: routine docs/x.txt
+  ---
+  duration_ms: 0.524289
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: governed .claude-plugin/plugin.json
+ok 8 - cache-companions dial: governed .claude-plugin/plugin.json
+  ---
+  duration_ms: 0.418412
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: governed .claude-plugin/marketplace.json
+ok 9 - cache-companions dial: governed .claude-plugin/marketplace.json
+  ---
+  duration_ms: 0.588656
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: governed hooks/core.ts
+ok 10 - cache-companions dial: governed hooks/core.ts
+  ---
+  duration_ms: 0.678935
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: governed hooks/register.tsx
+ok 11 - cache-companions dial: governed hooks/register.tsx
+  ---
+  duration_ms: 0.318204
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: governed hooks/prices.ts
+ok 12 - cache-companions dial: governed hooks/prices.ts
+  ---
+  duration_ms: 0.205741
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: governed hooks/hooks.json
+ok 13 - cache-companions dial: governed hooks/hooks.json
+  ---
+  duration_ms: 0.181719
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: governed types/index.d.ts
+ok 14 - cache-companions dial: governed types/index.d.ts
+  ---
+  duration_ms: 0.258227
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: governed tests/core.test.ts
+ok 15 - cache-companions dial: governed tests/core.test.ts
+  ---
+  duration_ms: 0.199324
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: governed tests/plugin.test.tsx
+ok 16 - cache-companions dial: governed tests/plugin.test.tsx
+  ---
+  duration_ms: 0.194271
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: governed tsconfig.json
+ok 17 - cache-companions dial: governed tsconfig.json
+  ---
+  duration_ms: 0.326169
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: governed sounds/hungry.wav
+ok 18 - cache-companions dial: governed sounds/hungry.wav
+  ---
+  duration_ms: 0.204362
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: governed sounds/make-hungry.py
+ok 19 - cache-companions dial: governed sounds/make-hungry.py
+  ---
+  duration_ms: 0.184857
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: governed commands/boop.md
+ok 20 - cache-companions dial: governed commands/boop.md
+  ---
+  duration_ms: 0.177834
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: governed agents/x.md
+ok 21 - cache-companions dial: governed agents/x.md
+  ---
+  duration_ms: 0.183873
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: governed skills/x/SKILL.md
+ok 22 - cache-companions dial: governed skills/x/SKILL.md
+  ---
+  duration_ms: 0.220963
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: governed skills/x/notes.md
+ok 23 - cache-companions dial: governed skills/x/notes.md
+  ---
+  duration_ms: 0.199375
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: governed output-styles/x.md
+ok 24 - cache-companions dial: governed output-styles/x.md
+  ---
+  duration_ms: 0.20671
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: governed settings.json
+ok 25 - cache-companions dial: governed settings.json
+  ---
+  duration_ms: 0.210048
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: governed .mcp.json
+ok 26 - cache-companions dial: governed .mcp.json
+  ---
+  duration_ms: 0.157473
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: governed docs/x.ts
+ok 27 - cache-companions dial: governed docs/x.ts
+  ---
+  duration_ms: 0.213524
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: governed plans/x.js
+ok 28 - cache-companions dial: governed plans/x.js
+  ---
+  duration_ms: 0.292884
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: governed docs/x.mjs
+ok 29 - cache-companions dial: governed docs/x.mjs
+  ---
+  duration_ms: 0.258251
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: governed plans/x.sh
+ok 30 - cache-companions dial: governed plans/x.sh
+  ---
+  duration_ms: 0.321587
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: governed docs/x.json
+ok 31 - cache-companions dial: governed docs/x.json
+  ---
+  duration_ms: 0.291696
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: governed AGENTS.md
+ok 32 - cache-companions dial: governed AGENTS.md
+  ---
+  duration_ms: 0.227404
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: governed CLAUDE.md
+ok 33 - cache-companions dial: governed CLAUDE.md
+  ---
+  duration_ms: 0.191494
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: governed HANDOFF.md
+ok 34 - cache-companions dial: governed HANDOFF.md
+  ---
+  duration_ms: 0.483207
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: governed STATUS.md
+ok 35 - cache-companions dial: governed STATUS.md
+  ---
+  duration_ms: 0.713129
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: governed ROADMAP.md
+ok 36 - cache-companions dial: governed ROADMAP.md
+  ---
+  duration_ms: 0.538073
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: governed docs/SPEC.md
+ok 37 - cache-companions dial: governed docs/SPEC.md
+  ---
+  duration_ms: 0.275778
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: governed docs/sub/SKILL.md
+ok 38 - cache-companions dial: governed docs/sub/SKILL.md
+  ---
+  duration_ms: 0.166385
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: governed docs/sub/AGENTS.md
+ok 39 - cache-companions dial: governed docs/sub/AGENTS.md
+  ---
+  duration_ms: 0.237458
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: governed README.md
+ok 40 - cache-companions dial: governed README.md
+  ---
+  duration_ms: 0.277873
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: governed LICENSE
+ok 41 - cache-companions dial: governed LICENSE
+  ---
+  duration_ms: 0.277095
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: governed .github/ci/routine-paths
+ok 42 - cache-companions dial: governed .github/ci/routine-paths
+  ---
+  duration_ms: 0.080798
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: governed .github/governance-paths
+ok 43 - cache-companions dial: governed .github/governance-paths
+  ---
+  duration_ms: 0.082001
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: governed .github/walls.json
+ok 44 - cache-companions dial: governed .github/walls.json
+  ---
+  duration_ms: 0.085027
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: governed .github/workflows/referee.yml
+ok 45 - cache-companions dial: governed .github/workflows/referee.yml
+  ---
+  duration_ms: 0.197001
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: governed .github/ci/referee.mjs
+ok 46 - cache-companions dial: governed .github/ci/referee.mjs
+  ---
+  duration_ms: 0.09477
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: governed .github/ci/referee.cache-companions.test.mjs
+ok 47 - cache-companions dial: governed .github/ci/referee.cache-companions.test.mjs
+  ---
+  duration_ms: 0.078133
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: governed .github/FUNDING.yml
+ok 48 - cache-companions dial: governed .github/FUNDING.yml
+  ---
+  duration_ms: 0.107063
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: governed .gitleaks.toml
+ok 49 - cache-companions dial: governed .gitleaks.toml
+  ---
+  duration_ms: 0.086718
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: governed .gitleaksignore
+ok 50 - cache-companions dial: governed .gitleaksignore
+  ---
+  duration_ms: 0.081477
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: governed .gitignore
+ok 51 - cache-companions dial: governed .gitignore
+  ---
+  duration_ms: 0.087816
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: governed .gitattributes
+ok 52 - cache-companions dial: governed .gitattributes
+  ---
+  duration_ms: 1.089537
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: governed docs/x.yml
+ok 53 - cache-companions dial: governed docs/x.yml
+  ---
+  duration_ms: 0.297421
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: governed plans/x.yaml
+ok 54 - cache-companions dial: governed plans/x.yaml
+  ---
+  duration_ms: 0.208791
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: hold CHANGELOG.md
+ok 55 - cache-companions dial: hold CHANGELOG.md
+  ---
+  duration_ms: 0.364055
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: hold CONTRIBUTING.md
+ok 56 - cache-companions dial: hold CONTRIBUTING.md
+  ---
+  duration_ms: 0.290337
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: hold WORKTREE-SUMMARY.md
+ok 57 - cache-companions dial: hold WORKTREE-SUMMARY.md
+  ---
+  duration_ms: 0.254373
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: hold notes.md
+ok 58 - cache-companions dial: hold notes.md
+  ---
+  duration_ms: 0.203017
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: hold research/x.md
+ok 59 - cache-companions dial: hold research/x.md
+  ---
+  duration_ms: 0.275625
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: hold plans/x.html
+ok 60 - cache-companions dial: hold plans/x.html
+  ---
+  duration_ms: 0.281849
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: hold docs/x.svg
+ok 61 - cache-companions dial: hold docs/x.svg
+  ---
+  duration_ms: 0.309491
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: hold plans/x.log
+ok 62 - cache-companions dial: hold plans/x.log
+  ---
+  duration_ms: 0.229114
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: hold plans/x.csv
+ok 63 - cache-companions dial: hold plans/x.csv
+  ---
+  duration_ms: 0.282999
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: hold plans/x.MDX
+ok 64 - cache-companions dial: hold plans/x.MDX
+  ---
+  duration_ms: 0.240426
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: hold plans/requirements.txt
+ok 65 - cache-companions dial: hold plans/requirements.txt
+  ---
+  duration_ms: 0.210275
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: hold docs/sub/package.json
+ok 66 - cache-companions dial: hold docs/sub/package.json
+  ---
+  duration_ms: 0.197199
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: hold plans/x.md 100755
+ok 67 - cache-companions dial: hold plans/x.md 100755
+  ---
+  duration_ms: 0.387401
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: hold plans/link.md 120000
+ok 68 - cache-companions dial: hold plans/link.md 120000
+  ---
+  duration_ms: 0.212615
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: hold docs/.hidden/x.md
+ok 69 - cache-companions dial: hold docs/.hidden/x.md
+  ---
+  duration_ms: 0.196605
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: hold plans/.x.md
+ok 70 - cache-companions dial: hold plans/.x.md
+  ---
+  duration_ms: 0.269802
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: one non-routine file holds the whole PR
+ok 71 - cache-companions dial: one non-routine file holds the whole PR
+  ---
+  duration_ms: 0.453549
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: one plugin file governs the whole PR
+ok 72 - cache-companions dial: one plugin file governs the whole PR
+  ---
+  duration_ms: 0.548493
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: a sticky hold label still holds routine files
+ok 73 - cache-companions dial: a sticky hold label still holds routine files
+  ---
+  duration_ms: 0.320137
+  type: 'test'
+  ...
+# Subtest: cache-companions dial: the dial is not the ea-jorts "*": only .md/.txt beneath plans/ and docs/
+ok 74 - cache-companions dial: the dial is not the ea-jorts "*": only .md/.txt beneath plans/ and docs/
+  ---
+  duration_ms: 0.45341
+  type: 'test'
+  ...
+# Subtest: cache-companions governed list: no ea-jorts-only path is carried over
+ok 75 - cache-companions governed list: no ea-jorts-only path is carried over
+  ---
+  duration_ms: 0.186758
+  type: 'test'
+  ...
+# Subtest: cache-companions plugin manifest: no component path points into the routine folders
+ok 76 - cache-companions plugin manifest: no component path points into the routine folders
+  ---
+  duration_ms: 0.934334
+  type: 'test'
+  ...
+1..76
+# tests 76
+# suites 0
+# pass 76
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 167.776917
