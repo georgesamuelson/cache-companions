@@ -46,16 +46,16 @@ Whether the prompt post itself now succeeds is proven only live, once the Apps a
 
 ## George's click list (in order; nothing here was done)
 
-1. **Apps.** Install **Ace** (`ace-samuelson`, App 5552138) and the **Referee** (`referee-samuelson`, App 5552272) on `georgesamuelson/cache-companions` (or add this repo to their existing installations).
-2. **Environment.** Settings → Environments → new `referee`: deployment branches **main only**; secrets `REFEREE_PRIVATE_KEY` and `ACE_PRIVATE_KEY` (the two App keys).
-3. **Variables** (Settings → Secrets and variables → Actions → Variables):
-   - `MAIN_WALL_VERIFIED=false` (set `true` only after step 6 is read back with the Referee bound);
-   - `GO_COUNTING_ENABLED=false` (stays off until the Mac logout and identity proof);
-   - `PUSH_LOG_SCAN_INSTALLED_AT` = the install time, like `2026-11-03T15:00:00Z`.
-4. **Actions.** Settings → Actions → General: workflow permissions **Read repository contents**; **Require actions to be pinned to a full-length commit SHA** on.
-5. **Merging.** Settings → General → Pull Requests: **Allow squash merging only** (merge commits and rebase off; today merge commits are on); **Allow auto-merge off**; automatically delete head branches on.
-6. **Ruleset** `main-wall` (Settings → Rules → Rulesets), Active, target `main`, **no bypass**: restrict deletions; block force pushes; require a pull request, **0 approvals**; require status check **`referee`** from the Referee App (5552272), strict up-to-date off.
-7. Then merge this PR (squash). It is governed: it lands only with George.
+1. **Settings script `--apply`.** It sets:
+   - the `referee` environment, deployment branches **main only**, with the two App keys `REFEREE_PRIVATE_KEY` and `ACE_PRIVATE_KEY`;
+   - `MAIN_WALL_VERIFIED=false` and `GO_COUNTING_ENABLED=false` **on the `referee` environment**;
+   - `PUSH_LOG_SCAN_INSTALLED_AT` = the install time, like `2026-11-03T15:00:00Z`;
+   - Actions: workflow permissions **read**, and full-length **SHA pins required**;
+   - merging: **squash-only** (merge commits and rebase off; today merge commits are on), **auto-merge off**.
+2. **George squash-merges this wall PR.** It is governed: it lands only with George.
+3. **Settings script `--rulesets`.** It turns `wall: basic` into one ruleset, **`wall: main`**: pull request required with **0 approvals**, plus the required check **`referee`** bound to the Referee App **5552272**.
+4. **Settings script `--activate`, in the same sitting as step 3.** It sets `MAIN_WALL_VERIFIED=true` on the `referee` **environment** and at **repository** level, and sets `GO_COUNTING_ENABLED=true`.
+5. **Ace App** (`ace-samuelson`, App 5552138) on this repo.
 
 ## Open items for George
 
