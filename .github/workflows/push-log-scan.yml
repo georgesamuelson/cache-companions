@@ -1,0 +1,76 @@
+# push-log-scan: George's option (b), every 6 hours (U3 design r10, 10/31/2026). Governed: Rival + George's merge.
+# One per repo (r9: no central job, no App key, no secrets). From main's rules it re-scans every push in THIS
+# repo's push log since this workflow's last successful scheduled run, so a branch that switched off its own
+# branch-scan, or was deleted or force-replaced, is still caught. No manual trigger on purpose (a token with Actions write could start one); for a look by
+# hand, .github/ci/push-log-scan.sh runs locally with REPORT_ONLY=1 (PUSH-RULES.md). Not here: the Referee's
+# `go` re-check (its own scheduled run holds the App key) and the drift checks (the outside Watch's job).
+name: push-log-scan
+on:
+  schedule:
+    - cron: '23 */6 * * *'
+permissions:
+  contents: read
+jobs:
+  scan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read          # its own run history (the start point)
+      pull-requests: read    # the open PRs
+      issues: write          # the alerts
+    steps:
+      - name: main's copy of the rules and scripts (never a branch's)
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.repository.default_branch || github.ref_name }}
+          path: trusted
+          fetch-depth: 1
+          persist-credentials: false
+          sparse-checkout: |
+            .github/ci/push-rules.sh
+            .github/ci/alert-george.sh
+            .github/ci/push-log-scan.sh
+            .gitleaks.toml
+            .gitleaksignore
+          sparse-checkout-cone-mode: false
+      - name: pinned gitleaks 8.30.1 (checksum checked)
+        run: |
+          curl --fail --silent --show-error --location -o gl.tgz https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  gl.tgz" | sha256sum -c -
+          tar xzf gl.tgz gitleaks && sudo install gitleaks /usr/local/bin/gitleaks
+      - name: scan this repo's push log
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TRUSTED_DIR: ${{ github.workspace }}/trusted
+          PUSH_LOG_SCAN_INSTALLED_AT: ${{ vars.PUSH_LOG_SCAN_INSTALLED_AT }}
+          REFEREE_APP_ID: '5552272'
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: bash "$TRUSTED_DIR/.github/ci/push-log-scan.sh"
+
+  alert:
+    needs: scan
+    if: always() && (needs.scan.result == 'failure' || needs.scan.result == 'cancelled')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.repository.default_branch || github.ref_name }}
+          path: trusted
+          fetch-depth: 1
+          persist-credentials: false
+          sparse-checkout: .github/ci/alert-george.sh
+          sparse-checkout-cone-mode: false
+      - name: tell George the push-log scan did not finish
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          printf 'cannot evaluate: the 6-hourly push-log scan did not finish (a timeout, a cancel, or a checkout, download or read failure). Pushes since its last success are not certified until it succeeds.\n' >"$RUNNER_TEMP/s.md"
+          bash trusted/.github/ci/alert-george.sh "(push-log scan)" 0000000000000000000000000000000000000000 failed "$RUNNER_TEMP/s.md"

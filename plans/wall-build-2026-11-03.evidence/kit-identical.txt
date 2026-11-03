@@ -1,0 +1,21 @@
+# commit 1 (74ce547bf3fffd5f04f8b0cace887bde57db882c) vs ea-jorts 820f02ce: mode, blob, path of every kit file (diff empty = identical)
+IDENTICAL: 12 files
+100644 blob 6ae08267873376f7f907bc9e2a78eeb50fae151f	.github/ci/PUSH-RULES.md
+100755 blob 1de3a8d01151f2b46f825c7a4575231d8dc821ed	.github/ci/alert-george.sh
+100755 blob d882dd78e3362ac6c7dadf4162ce99a9e0d0402e	.github/ci/push-log-scan.sh
+100755 blob 3f9de9608bb971e010b8d0b3a3d4608ae9393e93	.github/ci/push-rules.sh
+100644 blob 769cec2f13d665fb532eae816133a76c164e0e80	.github/ci/referee.mjs
+100644 blob 52f397f0f144101567b802377d98051b91a27c08	.github/ci/referee.test.mjs
+100644 blob 1455f454dc072b4098c23f1bb91df668eeca8610	.github/ci/routine-paths
+100644 blob 5e08b126d9c532b67848e61853e56772d80e0c01	.github/governance-paths
+100644 blob efae4539716201f0afd9466ca709b47fcca92a7a	.github/walls.json
+100644 blob a807b84e2a6b535fcc02d3c790cd7aadf382b5f1	.github/workflows/branch-scan.yml
+100644 blob e7c0857e8926315070f2f39dea8e9dc93dc8b3b0	.github/workflows/push-log-scan.yml
+100644 blob ca2929e9e81414cffb0cbeee0f792be0d67c467c	.github/workflows/referee.yml
+
+# every action pinned to a full SHA
+.github/workflows/branch-scan.yml:29:        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+.github/workflows/branch-scan.yml:90:        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+.github/workflows/push-log-scan.yml:24:        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+.github/workflows/push-log-scan.yml:61:      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+.github/workflows/referee.yml:29:        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262

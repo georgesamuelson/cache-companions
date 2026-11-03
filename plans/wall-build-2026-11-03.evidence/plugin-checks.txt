@@ -1,0 +1,63 @@
+# AGENTS.md pre-push checks on the final tree (the kit touches no plugin file)
+$ claude plugin validate .
+Validating marketplace manifest: /home/user/cache-companions/.claude-plugin/marketplace.json
+
+Validating plugin: /home/user/cache-companions/.claude-plugin/plugin.json
+
+  > types ./types/index.d.ts declares on $: nothing (no EngineInterface member)
+  > types ./types/index.d.ts declares state: cache-companions.view, cache-companions.panelOpen, cache-companions.runtime
+
+Validating plugin: /home/user/cache-companions/CLAUDE.md
+
+‼ Found 1 warning:
+
+  > root: CLAUDE.md at the plugin root is not loaded as project context. To ship context with your plugin, use a skill (skills/<name>/SKILL.md) instead.
+
+Validating hooks: /home/user/cache-companions/hooks/hooks.json
+
+  > ./register.tsx hooks: session.start, session.end, prompt.submit, turn.start, turn.complete, classic.PostModelSwitch, classic.SessionStart, command.run{command=boop}, ui.render{component=Pane, requestId=cache-companions-settings}, ui.render{component=PromptHint}, ui.render{component=AbovePrompt}
+  > ./register.tsx answers its own command: command.run{command=boop}
+  > ./register.tsx gating hook with .catch: prompt.submit
+  > ./register.tsx gating hook with .catch: classic.PostModelSwitch
+  > ./register.tsx gating hook with .catch: classic.SessionStart
+  > ./register.tsx calls: $.audio.play (via refresh), $.clock.every, $.clock.now, $.command.register, $.env.get, $.model.fork (via boop), $.session.model (via refresh), $.session.usage, $.settings.read (via readWindowRule), $.state.get, $.state.set (via saveRuntime), $.store.get, $.store.set, $.ui.log, $.ui.open, $.ui.resolve, $.ui.status, $.ui.toast
+  > ./register.tsx env writes: nothing
+  > ./register.tsx env reads: CACHE_COMPANIONS_AUTO, CLAUDE_CODE_PROMPT_CACHE_TTL, ENABLE_PROMPT_CACHING_1H, FORCE_PROMPT_CACHING_5M, TERM_PROGRAM
+  > ./register.tsx state writes: cache-companions.panelOpen, cache-companions.runtime, cache-companions.view
+  > ./register.tsx state reads: cache-companions.panelOpen, cache-companions.runtime, cache-companions.view
+
+Plugin directory checks for /home/user/cache-companions. The plugin directory is the catalog that plugins are submitted to; this is a subset of what it runs.
+
+‼ Found 1 plugin directory warning:
+
+  > .claude-plugin/plugin.json icon: No icon (ICON_MISSING). No icon found in the plugin. The validator looked for `icon` in plugin.json and for a file at .claude-plugin/icon.png or .svg, assets/icon.png or .svg, or a similar path.
+    Fix: Add a square PNG to the plugin folder at .claude-plugin/icon.png, or set `icon` in plugin.json to the path of a square PNG or JPEG in the plugin: 512 to 2048 px on each side, under 2 MB. SVG and WebP are not accepted. That file may become the listing icon only once: the first time the plugin is saved or submitted in the developer portal. Adding or changing it later does not change the icon.
+
+About these checks:
+
+  > This folder also holds a marketplace manifest. The plugin directory treats such a folder as a plugin, so these checks cover only the plugin in this folder. To check another plugin that the marketplace lists, run validate on that plugin's folder.
+  > hooks/hooks.json names a hooks module (a code file listed under `modules`). The plugin directory has rules of its own for such code, and these checks apply none of them, so passing here does not mean the directory accepts the plugin. The developer portal's own validation applies those rules.
+
+These plugin directory checks do not change the result below.
+
+The directory also runs a safety scan and a policy review that this command does not.
+
+√ Validation passed with warnings
+exit 0
+$ claude plugin test .
+(pass) settings and all-time totals are shared with other sessions on the machine [126.23ms]
+(pass) the app band shows the face, a bar and Boop, and its settings card [90.33ms]
+(pass) the CLI shows the companion at the end of the hint line [80.71ms]
+(pass) a boop that fails on a dropped connection does not reset the timer, and retries until it lands [333.97ms]
+(pass) when the connection stays down past the window: likely cold, one toast, no more boops [632.42ms]
+(pass) a boop Claude refuses (sign-in) stops retrying until the next message [325.11ms]
+(pass) /boop early 80 boops at 4:00 left on a 5-minute window; early off goes back to 30 s [414.54ms]
+(pass) /boop remote shows remote, boops at about 70%, and /boop remote off ends it [167.86ms]
+(pass) the size notice uses the conversation size, not a turn that added up many requests [79.26ms]
+(pass) in the desktop app's Terminal panel the CLI entry uses the text face, which it draws at the right width [85.61ms]
+(pass) other terminals keep the emoji face [68.75ms]
+
+ 54 pass
+ 0 fail
+Ran 54 tests across 2 files. [8.33s]
+exit 0
