@@ -1,2 +1,9 @@
-# George 11/1, go only for governance/protected; nothing deploys from ea-jorts main.
-*
+# Cache Companions routine dial (wall build 11/3, plans/wall-build-2026-11-03.md): only plain notes may merge
+# without George's go: .md and .txt beneath plans/ and docs/; * crosses directories. Governed paths
+# (.github/governance-paths) always win, so docs/SPEC.md (agents read it first) and any agent-rule file stay governed.
+# The plugin (hooks/, types/, tests/, sounds/, .claude-plugin/), README, CI, executable modes, hidden paths,
+# symlinks, binaries, dependency files and collisions never pass here. Every unlisted path holds.
+plans/*.md
+plans/*.txt
+docs/*.md
+docs/*.txt

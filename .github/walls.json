@@ -1,6 +1,6 @@
 {
   "record_status": "DRAFT_NOT_INSTALLED",
-  "repository": "georgesamuelson/ea-jorts",
+  "repository": "georgesamuelson/cache-companions",
   "default_branch": "main",
   "main-wall": {
     "target": "branch",
@@ -68,5 +68,11 @@
     "default_workflow_permissions": "read",
     "require_full_action_sha": true
   },
-  "runtime_baseline": "Outside GitHub: watch-worker/watch.config.json; copied and deployed only by George after review. Referee App ID is recorded; null webhooks remain unapproved."
+  "runtime_baseline": "Outside GitHub: Cache Companions' outside-Watch baseline and alarm delivery are not yet approved; George reviews and deploys them. Referee App ID is recorded; null webhooks remain unapproved.",
+  "cache_companions_notes": [
+    "Wall build 11/3 (plans/wall-build-2026-11-03.md). Not installed: George installs the Apps, the referee environment, the main-wall ruleset and every setting below.",
+    "One required check: referee, bound to the Referee App 5552272 so no other App or status can satisfy it. Cache Companions has no stamped check (no verdict-check), so none is required.",
+    "settings records the target: squash-only, auto-merge off. Today the repo also allows merge commits (PR #2 landed as one); George switches to squash-only at install.",
+    "The repository is public: every alert withholds details; the hand-run is PUSH-RULES.md step 7 with REPORT_ONLY=1."
+  ]
 }

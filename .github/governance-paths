@@ -44,4 +44,32 @@ opencode.json
 scripts/*
 *.yml
 *.yaml
-docs/orch-loop/orchestration-role-charter-2026-09-15.md
+# Cache Companions only (wall build 11/3). The ea-jorts-only charter row stays in ea-jorts.
+# The plugin: every user and every fresh cloud container installs it from main.
+.claude-plugin/*
+hooks/*
+types/*
+tests/*
+sounds/*
+commands/*
+agents/*
+skills/*
+output-styles/*
+settings.json
+tsconfig.json
+*.ts
+*.tsx
+*.js
+*.mjs
+*.cjs
+*.py
+*.sh
+*.json
+# Read first and followed by agents (AGENTS.md: "resume" follows HANDOFF.md; then STATUS, ROADMAP, docs/SPEC).
+HANDOFF.md
+STATUS.md
+ROADMAP.md
+docs/SPEC.md
+# The marketplace page with the install commands users copy, and the licence.
+README.md
+LICENSE
