@@ -1,0 +1,72 @@
+{
+  "record_status": "DRAFT_NOT_INSTALLED",
+  "repository": "georgesamuelson/ea-jorts",
+  "default_branch": "main",
+  "main-wall": {
+    "target": "branch",
+    "enforcement": "active",
+    "bypass_actors": [],
+    "rules": [
+      {
+        "type": "deletion"
+      },
+      {
+        "type": "non_fast_forward"
+      },
+      {
+        "type": "pull_request",
+        "parameters": {
+          "required_approving_review_count": 0
+        }
+      },
+      {
+        "type": "required_status_checks",
+        "parameters": {
+          "required_status_checks": [
+            {
+              "context": "referee",
+              "integration_id": 5552272
+            }
+          ],
+          "strict_required_status_checks_policy": false
+        }
+      }
+    ],
+    "conditions": {
+      "ref_name": {
+        "include": [
+          "refs/heads/main"
+        ],
+        "exclude": []
+      }
+    }
+  },
+  "allowed_webhooks": null,
+  "required_workflows": [
+    ".github/workflows/referee.yml",
+    ".github/workflows/branch-scan.yml",
+    ".github/workflows/push-log-scan.yml"
+  ],
+  "push_recovery": {
+    "event": "schedule",
+    "branch": "main",
+    "conclusion": "success",
+    "max_age_hours_exclusive": 13
+  },
+  "referee_environment": {
+    "allowed_branches": [
+      "main"
+    ],
+    "go_counting_enabled": false
+  },
+  "settings": {
+    "allow_auto_merge": false,
+    "delete_branch_on_merge": true,
+    "allow_merge_commit": false,
+    "allow_squash_merge": true,
+    "allow_rebase_merge": false,
+    "default_workflow_permissions": "read",
+    "require_full_action_sha": true
+  },
+  "runtime_baseline": "Outside GitHub: watch-worker/watch.config.json; copied and deployed only by George after review. Referee App ID is recorded; null webhooks remain unapproved."
+}

@@ -1,0 +1,111 @@
+# branch-scan: the early alert on every push (U3 design r9, 10/31/2026). Governed file: Rival + George's merge.
+# Best effort: a branch that edits or skips this file may not alert on push; the 6-hourly push-log-scan (main's
+# copy) re-scans that push at its next run, if it is still running (a token with Actions write can switch both
+# off; the outside Watch is the alarm for that). The WALL is the Referee's required check at PR time.
+# Cleanup: .github/ci/PUSH-RULES.md.
+name: branch-scan
+on:
+  push:
+    branches: ['**']
+    tags: ['**']
+permissions:
+  contents: read
+# No concurrency group on purpose: GitHub cancels a waiting run in a group, which would skip a push.
+jobs:
+  scan:
+    # Once George sets MAIN_WALL_VERIFIED (after main-wall is read back with the Referee bound), pushes to the
+    # default BRANCH are PR merges the Referee already checked: skipped to save minutes. Its creation is not,
+    # and neither is a tag that happens to share its name (the full ref is compared).
+    if: >-
+      github.event.deleted != true &&
+      !(vars.MAIN_WALL_VERIFIED == 'true' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && !github.event.created)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      result: ${{ steps.rules.outputs.result }}
+      summary: ${{ steps.rules.outputs.summary }}
+    steps:
+      - name: main's copy of the rules (never the pushed branch's)
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          path: trusted
+          fetch-depth: 1
+          persist-credentials: false
+          sparse-checkout: |
+            .github/ci/push-rules.sh
+            .gitleaks.toml
+            .gitleaksignore
+          sparse-checkout-cone-mode: false
+      - name: pinned gitleaks 8.30.1 (checksum checked)
+        run: |
+          curl --fail --silent --show-error --location -o gl.tgz https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  gl.tgz" | sha256sum -c -
+          tar xzf gl.tgz gitleaks && sudo install gitleaks /usr/local/bin/gitleaks
+      - name: push rules over the pushed range
+        id: rules
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MAIN: ${{ github.event.repository.default_branch }}
+          TRUSTED_DIR: ${{ github.workspace }}/trusted
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.event.after }}
+          REF: ${{ github.ref_name }}
+          # creating the default branch scans its whole history (full fetch); everything else: 500 commits
+          SCAN_DEPTH: ${{ (github.event.created && github.ref_name == github.event.repository.default_branch) && '0' || '500' }}
+          PUBLIC_REPO: ${{ github.event.repository.private && 'no' || 'yes' }}
+        run: |
+          export SUMMARY="$RUNNER_TEMP/summary.md"; : >"$SUMMARY"; rc=0
+          if [ ! -f "$TRUSTED_DIR/.github/ci/push-rules.sh" ]; then
+            echo "cannot evaluate: the push rules are not on main yet (expected only on the setup PR's branch)" >>"$SUMMARY"; rc=2
+          else
+            if [ "$PUBLIC_REPO" = yes ]; then   # a public run log is readable by anyone: no scanner output at all
+              bash "$TRUSTED_DIR/.github/ci/push-rules.sh" "$BEFORE" "$AFTER" "$REF" >/dev/null 2>&1 || rc=$?
+            else
+              bash "$TRUSTED_DIR/.github/ci/push-rules.sh" "$BEFORE" "$AFTER" "$REF" || rc=$?
+            fi
+          fi
+          case $rc in 0) result=clean ;; 4) result=held; rc=0 ;; *) result=failed ;; esac
+          if [ "$PUBLIC_REPO" = yes ]; then   # counts only, never paths or commits
+            n=$(grep -c . "$SUMMARY" || true); echo "result: $result; $n finding line(s); details withheld because this repository is public" >"$SUMMARY"
+          fi
+          d="EOF_$(openssl rand -hex 16)"
+          { echo "result=$result"; echo "summary<<$d"; head -n 60 "$SUMMARY"; echo "$d"; } >>"$GITHUB_OUTPUT"
+          cat "$SUMMARY" >>"$GITHUB_STEP_SUMMARY"
+          exit "$rc"
+
+  alert:
+    needs: scan
+    # Dependabot's runs get a read-only token, so they cannot post; the Referee checks its PRs.
+    if: always() && github.actor != 'dependabot[bot]' && (needs.scan.result == 'failure' || needs.scan.result == 'cancelled' || needs.scan.outputs.result == 'held')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+    steps:
+      - name: main's copy of the alert script
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          path: trusted
+          fetch-depth: 1
+          persist-credentials: false
+          sparse-checkout: .github/ci/alert-george.sh
+          sparse-checkout-cone-mode: false
+      - name: tell George (a PR comment if the branch has a PR, else an issue)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SUMMARY: ${{ needs.scan.outputs.summary }}
+          KIND: ${{ needs.scan.outputs.result == 'held' && 'held' || 'failed' }}
+          BRANCH: ${{ github.ref_name }}
+          TIP: ${{ github.event.after }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          REFEREE_APP_ID: '5552272'
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          printf '%s\n' "$SUMMARY" >"$RUNNER_TEMP/summary.md"
+          bash trusted/.github/ci/alert-george.sh "$BRANCH" "$TIP" "$KIND" "$RUNNER_TEMP/summary.md"
