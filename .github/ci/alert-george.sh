@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # alert-george.sh BRANCH TIP KIND SUMMARY_FILE (U3 r9, governed): @-mentions George on the branch's open PR,
+# (BRANCH may be refs/tags/<name>: the alert then names the tag and says to delete the tag; lookups keep the full ref)
 # else in a new issue. KIND is "failed" or "held". It posts EVERY time it is called (no de-duplication).
 # - Main counts as protected only if the default branch requires a `referee` check BOUND to the Referee
 #   App (integration_id = REFEREE_APP_ID, supplied by the trusted workflow or local caller as a positive whole number; the
@@ -12,6 +13,7 @@
 set -euo pipefail
 export LC_ALL=C
 branch=$1 tip=$2 kind=$3 summary_file=$4
+case $branch in refs/tags/*) noun=tag pfx='tag ' ;; *) noun=branch pfx= ;; esac   # display only
 R=${GITHUB_REPOSITORY:?} OWNER=${GITHUB_REPOSITORY_OWNER:?}
 RUN=${RUN_URL:-}
 enc() { jq -rn --arg s "$1" '$s | @uri'; }
@@ -55,12 +57,12 @@ awk -v max=60000 -v dir="$work" '
 parts=("$work"/part-*); n=${#parts[@]}; i=0
 for part in "${parts[@]}"; do
   i=$((i + 1)); label=""; (( n > 1 )) && label=" (part $i of $n)"
-  body=$(printf '@georgesamuelson %s on branch %s at %s%s.\n\n%s\n\n%s If a key or password is listed, rotate it first, then delete the branch: %s/%s/blob/HEAD/.github/ci/PUSH-RULES.md%s' \
-    "$what" "$(enc "$branch")" "${tip:0:8}" "$label" "$(cat "$part")" "$wall" "${GITHUB_SERVER_URL:-https://github.com}" "$R" "${RUN:+ Run: $RUN}")
+  body=$(printf '@georgesamuelson %s on %s %s at %s%s.\n\n%s\n\n%s If a key or password is listed, rotate it first, then delete the %s: %s/%s/blob/HEAD/.github/ci/PUSH-RULES.md%s' \
+    "$what" "$noun" "$(enc "${branch#refs/tags/}")" "${tip:0:8}" "$label" "$(cat "$part")" "$wall" "$noun" "${GITHUB_SERVER_URL:-https://github.com}" "$R" "${RUN:+ Run: $RUN}")
   if [ -n "$pr" ]; then
     gh api "repos/$R/issues/$pr/comments" -f body="$body" >/dev/null
   else
-    gh api "repos/$R/issues" -f title="Push rules: $kind on $(enc "$branch")$label" -f body="$body" >/dev/null
+    gh api "repos/$R/issues" -f title="Push rules: $kind on $pfx$(enc "${branch#refs/tags/}")$label" -f body="$body" >/dev/null
   fi
 done
 echo "alerted: $kind at ${tip:0:8} ($n part(s))"

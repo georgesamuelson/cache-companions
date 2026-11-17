@@ -1,9 +1,13 @@
 # branch-scan: early alert on PR events (opened, reopened, new commits) and on tag pushes.
 # Governed file: Rival review, George's go, and George's merge. The Referee's check is the wall.
 # Scan what the PR adds to main, or a pushed tag's range, using main's trusted rules and the pushed
-# commits as data. Best effort: a PR, or a tag on a commit, that edits or skips this workflow may
-# not alert (GitHub runs a push event's workflow from the tagged commit), and GitHub creates no
-# push event at all when more than three tags are pushed at once.
+# commits as data. Best effort. A PR that edits or skips this workflow may not alert. These tags
+# are not scanned, and nothing else scans them until their commit is in a PR (George's go on this
+# change accepts that): a tag on a commit whose copy of this file has no tag trigger (GitHub runs
+# a push event's workflow from the tagged commit, so this includes a commit from before the branch
+# scan existed or one that edits or removes this workflow; a tag on an older commit runs that
+# commit's older copy); every tag in a push of more than three tags (GitHub then creates no push
+# event); a tag pushed with a workflow's GITHUB_TOKEN (it starts no workflow); and a deleted tag.
 # Tags stay on push here because the six-hourly push-log-scan reads GitHub's activity log, and a
 # read-only check on 11/17/2026 found no tag pushes recorded there. Branches with no PR lose the
 # immediate push alert; push-log-scan still scans their pushed ranges, including deleted or

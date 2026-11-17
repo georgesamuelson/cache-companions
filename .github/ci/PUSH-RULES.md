@@ -8,11 +8,16 @@ comment with `pull-requests: write` in its alert job (a tag alert opens an
 issue). Tags keep their push trigger because `push-log-scan` reads GitHub's
 repository activity log, and a read-only check on 11/17/2026 found no tag
 pushes recorded there (in gs and ea-jorts, which both have tags). So
-`push-log-scan` is not counted as tag coverage. The tag scan is best effort:
-GitHub runs a push event's workflow from the tagged commit, so a tag on a
-commit that edits or removes this workflow may not alert, a deleted tag
-is not scanned, and GitHub creates no push event when more than three tags
-are pushed at once (push tags three or fewer at a time). Branches without a PR lose the immediate push alert. The
+`push-log-scan` is not counted as tag coverage. The tag scan is best effort.
+These tags are not scanned, and nothing else scans them until their commit is
+in a PR (George's go on this change accepts that): a tag on a commit whose
+copy of this workflow has no tag trigger, because GitHub runs a push event's
+workflow from the tagged commit (for example a commit from before the branch
+scan existed, or one that edits or removes this workflow; a tag on an older
+commit runs that commit's older copy); every tag in a push of more than three
+tags, because GitHub then creates no push event (push tags three or fewer at a
+time); a tag pushed with a workflow's `GITHUB_TOKEN`, which starts no
+workflow; and a deleted tag. Branches without a PR lose the immediate push alert. The
 unchanged six-hourly `push-log-scan` still checks their pushed ranges from
 main's trusted rules, including deleted or force-replaced tips. This is
 delayed detection, not a refusal of the push. The Referee alone does not
@@ -24,9 +29,9 @@ Its PR, comment, and main-push events remain unchanged. Removing either
 schedule needs a separately reviewed replacement or an explicit acceptance
 of lost coverage. The outside Watch remains a separate health alarm.
 
-1. A key, password or token is listed, or a pushed commit "can no longer be fetched": rotate it first. Revoke it where it was issued, make a new one, update where it lives. Treat it as seen even if the branch is already gone (a PR keeps the commit reachable; only GitHub Support can purge it).
-2. Then remove it from the branch: delete the branch, or rewrite its history and force-push the branch (never main). Close any PR; ask GitHub Support to remove cached views for a real secret.
-3. A big or design file, no secret: delete or rewrite the branch; put the file in the media home. Files unchanged throughout the scanned range do not enter the scanner's file checks; deletions skip the size/type checks. A later re-save is checked under the ordinary rules.
+1. A key, password or token is listed, or a pushed commit "can no longer be fetched": rotate it first. Revoke it where it was issued, make a new one, update where it lives. Treat it as seen even if the branch or tag is already gone (a PR keeps the commit reachable; only GitHub Support can purge it).
+2. Then remove it from the branch or tag: delete the branch, or rewrite its history and force-push the branch (never main). An alert that names a tag (`refs/tags/<name>`) needs the tag deleted: `git push origin :refs/tags/<name>`, then `git tag -d <name>` in each local copy. A tag is deleted, not rewritten, and deleting it does not purge the commit. Close any PR; ask GitHub Support to remove cached views for a real secret.
+3. A big or design file, no secret: delete or rewrite the branch, or delete the tag (step 2); put the file in the media home. Files unchanged throughout the scanned range do not enter the scanner's file checks; deletions skip the size/type checks. A later re-save is checked under the ordinary rules.
 4. A "held" file (git shows it as binary): it was not read, so its contents are unknown, not clean. Look at it before replying `go`; if it may hold a secret, remove it and rotate that secret.
 5. "No earlier successful run": expected once, at the first scheduled run after setup. Any later time, find out why (deleted runs, or every run failing) and treat the window as unchecked until a run succeeds.
 6. A health alert (a workflow not active, a workflow missing, a PR with no Referee run): George switches it back on (only he changes the walls), and everything since is treated as unchecked. A session tells George what it found (the repo's activity log, the Actions tab); whether any app's or session's access changes is George's decision alone. The cloud apps stay unless he decides otherwise (10/31).
