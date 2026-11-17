@@ -1,4 +1,20 @@
 # A push rule fired: what to do
+
+## PR alerts and push coverage (11/13/2026)
+
+`branch-scan` runs on PR open, reopen, and new commits. It scans what the
+PR adds to main and can comment with `pull-requests: write` in its alert job.
+Branches and tags without a PR lose the immediate push alert. The unchanged
+six-hourly `push-log-scan` still checks their pushed ranges from main's
+trusted rules, including deleted or force-replaced tips. This is delayed
+detection, not a refusal of the push. The Referee alone does not cover it.
+
+Keep the Referee's six-hour schedule as well: it retries open PRs after
+missed events or checks that finish after the event-driven run stops waiting.
+Its PR, comment, and main-push events remain unchanged. Removing either
+schedule needs a separately reviewed replacement or an explicit acceptance
+of lost coverage. The outside Watch remains a separate health alarm.
+
 1. A key, password or token is listed, or a pushed commit "can no longer be fetched": rotate it first. Revoke it where it was issued, make a new one, update where it lives. Treat it as seen even if the branch is already gone (a PR keeps the commit reachable; only GitHub Support can purge it).
 2. Then remove it from the branch: delete the branch, or rewrite its history and force-push the branch (never main). Close any PR; ask GitHub Support to remove cached views for a real secret.
 3. A big or design file, no secret: delete or rewrite the branch; put the file in the media home. Files unchanged throughout the scanned range do not enter the scanner's file checks; deletions skip the size/type checks. A later re-save is checked under the ordinary rules.
