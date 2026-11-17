@@ -1,31 +1,27 @@
-# branch-scan: the early alert on every push (U3 design r9, 10/31/2026). Governed file: Rival + George's merge.
-# Best effort: a branch that edits or skips this file may not alert on push; the 6-hourly push-log-scan (main's
-# copy) re-scans that push at its next run, if it is still running (a token with Actions write can switch both
-# off; the outside Watch is the alarm for that). The WALL is the Referee's required check at PR time.
+# branch-scan: early alert on PR events (opened, reopened, new commits).
+# Governed file: Rival review, George's go, and George's merge. The Referee's check is the wall.
+# Scan what the PR adds to main, using main's trusted rules and the PR head as data.
+# Best effort: a PR that edits or skips this workflow may not alert.
+# Non-PR branches and tags lose the immediate push alert; the unchanged six-hourly
+# push-log-scan still scans their pushed ranges, including deleted or replaced tips.
+# Keep that coverage and the Referee's six-hour retry backstop.
 # Cleanup: .github/ci/PUSH-RULES.md.
 name: branch-scan
 on:
-  push:
-    branches: ['**']
-    tags: ['**']
+  pull_request:
+    types: [opened, reopened, synchronize]
 permissions:
   contents: read
-# No concurrency group on purpose: GitHub cancels a waiting run in a group, which would skip a push.
+# No concurrency group: canceling a waiting run would skip a PR update.
 jobs:
   scan:
-    # Once George sets MAIN_WALL_VERIFIED (after main-wall is read back with the Referee bound), pushes to the
-    # default BRANCH are PR merges the Referee already checked: skipped to save minutes. Its creation is not,
-    # and neither is a tag that happens to share its name (the full ref is compared).
-    if: >-
-      github.event.deleted != true &&
-      !(vars.MAIN_WALL_VERIFIED == 'true' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && !github.event.created)
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     outputs:
       result: ${{ steps.rules.outputs.result }}
       summary: ${{ steps.rules.outputs.summary }}
     steps:
-      - name: main's copy of the rules (never the pushed branch's)
+      - name: main's copy of the rules (never the PR branch's)
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           ref: ${{ github.event.repository.default_branch }}
@@ -42,18 +38,18 @@ jobs:
           curl --fail --silent --show-error --location -o gl.tgz https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
           echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  gl.tgz" | sha256sum -c -
           tar xzf gl.tgz gitleaks && sudo install gitleaks /usr/local/bin/gitleaks
-      - name: push rules over the pushed range
+      - name: push rules over the PR's range
         id: rules
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           MAIN: ${{ github.event.repository.default_branch }}
           TRUSTED_DIR: ${{ github.workspace }}/trusted
-          BEFORE: ${{ github.event.before }}
-          AFTER: ${{ github.event.after }}
-          REF: ${{ github.ref_name }}
-          # creating the default branch scans its whole history (full fetch); everything else: 500 commits
-          SCAN_DEPTH: ${{ (github.event.created && github.ref_name == github.event.repository.default_branch) && '0' || '500' }}
+          # all zeros: scan merge-base with main .. the PR head
+          BEFORE: '0000000000000000000000000000000000000000'
+          AFTER: ${{ github.event.pull_request.head.sha }}
+          REF: ${{ github.event.pull_request.head.ref }}
+          SCAN_DEPTH: '500'
           PUBLIC_REPO: ${{ github.event.repository.private && 'no' || 'yes' }}
         run: |
           export SUMMARY="$RUNNER_TEMP/summary.md"; : >"$SUMMARY"; rc=0
@@ -84,7 +80,7 @@ jobs:
     permissions:
       contents: read
       issues: write
-      pull-requests: read
+      pull-requests: write
     steps:
       - name: main's copy of the alert script
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -95,14 +91,14 @@ jobs:
           persist-credentials: false
           sparse-checkout: .github/ci/alert-george.sh
           sparse-checkout-cone-mode: false
-      - name: tell George (a PR comment if the branch has a PR, else an issue)
+      - name: tell George (a comment on the PR)
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           SUMMARY: ${{ needs.scan.outputs.summary }}
           KIND: ${{ needs.scan.outputs.result == 'held' && 'held' || 'failed' }}
-          BRANCH: ${{ github.ref_name }}
-          TIP: ${{ github.event.after }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+          TIP: ${{ github.event.pull_request.head.sha }}
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
           REFEREE_APP_ID: '5552272'
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
