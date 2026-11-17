@@ -1,13 +1,22 @@
 # A push rule fired: what to do
 
-## PR alerts and push coverage (11/13/2026)
+## PR alerts and push coverage (11/13/2026; tags 11/17/2026)
 
-`branch-scan` runs on PR open, reopen, and new commits. It scans what the
-PR adds to main and can comment with `pull-requests: write` in its alert job.
-Branches and tags without a PR lose the immediate push alert. The unchanged
-six-hourly `push-log-scan` still checks their pushed ranges from main's
-trusted rules, including deleted or force-replaced tips. This is delayed
-detection, not a refusal of the push. The Referee alone does not cover it.
+`branch-scan` runs on PR open, reopen, and new commits, and on tag
+pushes. It scans what the PR adds to main, or the pushed tag's range, and can
+comment with `pull-requests: write` in its alert job (a tag alert opens an
+issue). Tags keep their push trigger because `push-log-scan` reads GitHub's
+repository activity log, and a read-only check on 11/17/2026 found no tag
+pushes recorded there (in gs and ea-jorts, which both have tags). So
+`push-log-scan` is not counted as tag coverage. The tag scan is best effort:
+GitHub runs a push event's workflow from the tagged commit, so a tag on a
+commit that edits or removes this workflow may not alert, a deleted tag
+is not scanned, and GitHub creates no push event when more than three tags
+are pushed at once (push tags three or fewer at a time). Branches without a PR lose the immediate push alert. The
+unchanged six-hourly `push-log-scan` still checks their pushed ranges from
+main's trusted rules, including deleted or force-replaced tips. This is
+delayed detection, not a refusal of the push. The Referee alone does not
+cover it.
 
 Keep the Referee's six-hour schedule as well: it retries open PRs after
 missed events or checks that finish after the event-driven run stops waiting.
