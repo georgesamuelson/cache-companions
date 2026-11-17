@@ -48,7 +48,8 @@ jobs:
           # all zeros: scan merge-base with main .. the PR head
           BEFORE: '0000000000000000000000000000000000000000'
           AFTER: ${{ github.event.pull_request.head.sha }}
-          REF: ${{ github.event.pull_request.head.ref }}
+          # Never equal MAIN, including a fork PR whose branch is named main.
+          REF: refs/pull/${{ github.event.pull_request.number }}/head
           SCAN_DEPTH: '500'
           PUBLIC_REPO: ${{ github.event.repository.private && 'no' || 'yes' }}
         run: |
